@@ -39,7 +39,7 @@ public final class ClientSetup {
                 }
                 return (stack.getUseDuration() - entity.getUseItemRemainingTicks()) / 60.0F;
             });
-            ItemProperties.register(ModItems.SEARING_BOW.get(), new ResourceLocation("pulling"),
+            ItemProperties.register(ModItems.SEARING_BOW.get(), ResourceLocation.withDefaultNamespace("pulling"),
                     (stack, level, entity, seed) -> entity != null && entity.isUsingItem() && entity.getUseItem() == stack ? 1.0F : 0.0F);
         });
     }

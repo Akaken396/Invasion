@@ -9,7 +9,6 @@ import com.invasion.registry.ModMenus;
 import com.invasion.registry.ModSounds;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraftforge.eventbus.api.IEventBus;
-import net.minecraftforge.fml.ModLoadingContext;
 import net.minecraftforge.fml.common.Mod;
 import net.minecraftforge.fml.config.ModConfig;
 import net.minecraftforge.fml.javafmlmod.FMLJavaModLoadingContext;
@@ -25,8 +24,8 @@ import net.minecraftforge.fml.javafmlmod.FMLJavaModLoadingContext;
 public class InvasionMod {
     public static final String MODID = "invasion";
 
-    public InvasionMod() {
-        IEventBus modBus = FMLJavaModLoadingContext.get().getModEventBus();
+    public InvasionMod(FMLJavaModLoadingContext context) {
+        IEventBus modBus = context.getModEventBus();
 
         ModBlocks.BLOCKS.register(modBus);
         ModItems.ITEMS.register(modBus);
@@ -36,10 +35,10 @@ public class InvasionMod {
         ModCreativeTabs.TABS.register(modBus);
         ModSounds.SOUNDS.register(modBus);
 
-        ModLoadingContext.get().registerConfig(ModConfig.Type.COMMON, Config.SPEC);
+        context.registerConfig(ModConfig.Type.COMMON, Config.SPEC);
     }
 
     public static ResourceLocation id(String path) {
-        return new ResourceLocation(MODID, path);
+        return ResourceLocation.fromNamespaceAndPath(MODID, path);
     }
 }

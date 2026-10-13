@@ -8,7 +8,7 @@ import net.minecraft.client.renderer.entity.SpiderRenderer;
 import net.minecraft.resources.ResourceLocation;
 
 public class InvaderSpiderRenderer extends SpiderRenderer<IMSpider> {
-    private static final ResourceLocation SPIDER = new ResourceLocation("textures/entity/spider/spider.png");
+    private static final ResourceLocation SPIDER = ResourceLocation.withDefaultNamespace("textures/entity/spider/spider.png");
     private static final ResourceLocation JUMPING = InvasionMod.id("textures/entity/spider_t2.png");
     private static final ResourceLocation MOTHER = InvasionMod.id("textures/entity/spider_t2b.png");
 
