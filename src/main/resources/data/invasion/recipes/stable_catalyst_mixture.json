@@ -1,23 +1,21 @@
 {
-  "type": "minecraft:crafting_shapeless",
+  "type": "minecraft:crafting_shaped",
   "category": "misc",
-  "ingredients": [
-    {
-      "item": "minecraft:coal_block"
+  "pattern": [
+    "D#D",
+    " X "
+  ],
+  "key": {
+    "D": {
+      "item": "minecraft:bone"
     },
-    {
-      "item": "minecraft:obsidian"
+    "#": {
+      "item": "minecraft:coal"
     },
-    {
-      "item": "invasion:rift_flux"
-    },
-    {
-      "item": "invasion:rift_flux"
-    },
-    {
+    "X": {
       "item": "minecraft:bowl"
     }
-  ],
+  },
   "result": {
     "item": "invasion:stable_catalyst_mixture",
     "count": 1

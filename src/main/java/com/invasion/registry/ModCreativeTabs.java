@@ -14,7 +14,9 @@ public final class ModCreativeTabs {
     public static final RegistryObject<CreativeModeTab> MAIN = TABS.register("main", () -> CreativeModeTab.builder()
             .title(Component.translatable("itemGroup.invasion"))
             .icon(() -> new ItemStack(ModItems.NEXUS.get()))
-            .displayItems((params, output) -> ModItems.ITEMS.getEntries().forEach(item -> output.accept(item.get())))
+            .displayItems((params, output) -> ModItems.ITEMS.getEntries().stream()
+                    .filter(item -> item != ModItems.ENGY_HAMMER)
+                    .forEach(item -> output.accept(item.get())))
             .build());
 
     private ModCreativeTabs() {

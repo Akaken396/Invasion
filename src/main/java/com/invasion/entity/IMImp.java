@@ -1,127 +1,79 @@
 package com.invasion.entity;
 
-import com.invasion.entity.ai.InvasionTargetGoal;
-import com.invasion.entity.ai.NexusAttackGoal;
-import net.minecraft.nbt.CompoundTag;
-import net.minecraft.world.DifficultyInstance;
+import com.invasion.Config;
+import net.minecraft.network.syncher.EntityDataAccessor;
+import net.minecraft.network.syncher.EntityDataSerializers;
+import net.minecraft.network.syncher.SynchedEntityData;
+import net.minecraft.sounds.SoundEvent;
+import net.minecraft.sounds.SoundEvents;
+import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityType;
-import net.minecraft.world.entity.MobSpawnType;
-import net.minecraft.world.entity.SpawnGroupData;
 import net.minecraft.world.entity.ai.attributes.AttributeSupplier;
 import net.minecraft.world.entity.ai.attributes.Attributes;
-import net.minecraft.world.entity.ai.goal.FloatGoal;
-import net.minecraft.world.entity.ai.goal.LookAtPlayerGoal;
-import net.minecraft.world.entity.ai.goal.MeleeAttackGoal;
-import net.minecraft.world.entity.ai.goal.RandomLookAroundGoal;
-import net.minecraft.world.entity.ai.goal.WaterAvoidingRandomStrollGoal;
-import net.minecraft.world.entity.ai.goal.target.HurtByTargetGoal;
-import net.minecraft.world.entity.monster.Zombie;
-import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.entity.ai.navigation.PathNavigation;
+import net.minecraft.world.entity.ai.navigation.WallClimberNavigation;
 import net.minecraft.world.level.Level;
-import net.minecraft.world.level.ServerLevelAccessor;
-import org.jetbrains.annotations.Nullable;
 
-/** A small, fast and fire-proof invader whose attacks set targets on fire. */
-public class IMImp extends Zombie implements InvasionMob {
-    private final NexusLink link = new NexusLink();
+/** A small fire-proof imp that climbs walls and sets its victims on fire. */
+public class IMImp extends InvasionMonster {
+    private static final EntityDataAccessor<Boolean> DATA_CLIMBING = SynchedEntityData.defineId(IMImp.class, EntityDataSerializers.BOOLEAN);
 
-    public IMImp(EntityType<? extends Zombie> type, Level level) {
+    public IMImp(EntityType<? extends IMImp> type, Level level) {
         super(type, level);
-        setBaby(true);
     }
 
     public static AttributeSupplier.Builder createInvasionAttributes() {
-        return Zombie.createAttributes()
-                .add(Attributes.MAX_HEALTH, 12.0D)
-                .add(Attributes.ATTACK_DAMAGE, 2.0D)
-                .add(Attributes.MOVEMENT_SPEED, 0.25D)
-                .add(Attributes.FOLLOW_RANGE, 64.0D)
-                .add(Attributes.SPAWN_REINFORCEMENTS_CHANCE, 0.0D);
+        return createBaseAttributes().add(Attributes.ATTACK_DAMAGE, 3.0D).add(Attributes.MOVEMENT_SPEED, 0.36D);
     }
 
     @Override
-    protected void registerGoals() {
-        goalSelector.addGoal(0, new FloatGoal(this));
-        goalSelector.addGoal(2, new MeleeAttackGoal(this, 1.1D, false));
-        goalSelector.addGoal(3, new NexusAttackGoal<>(this, 1.0D));
-        goalSelector.addGoal(7, new WaterAvoidingRandomStrollGoal(this, 0.8D));
-        goalSelector.addGoal(8, new LookAtPlayerGoal(this, Player.class, 8.0F));
-        goalSelector.addGoal(8, new RandomLookAroundGoal(this));
-        targetSelector.addGoal(1, new HurtByTargetGoal(this));
-        targetSelector.addGoal(2, new InvasionTargetGoal<>(this, Player.class));
+    protected void defineSynchedData() {
+        super.defineSynchedData();
+        entityData.define(DATA_CLIMBING, false);
     }
 
     @Override
-    public NexusLink getNexusLink() {
-        return link;
+    protected PathNavigation createNavigation(Level level) {
+        return new WallClimberNavigation(this, level);
     }
 
     @Override
-    public int getNexusDamage() {
-        return 1;
+    protected void applyStats(int tier, int flavour) {
+        setStats(Config.HP_IMP.get(), 0.3D * 1.2D, 3);
     }
 
     @Override
-    public int getNexusAttackInterval() {
-        return 20;
+    public void tick() {
+        super.tick();
+        if (!level().isClientSide) {
+            entityData.set(DATA_CLIMBING, horizontalCollision);
+        }
+    }
+
+    @Override
+    public boolean onClimbable() {
+        return entityData.get(DATA_CLIMBING);
     }
 
     @Override
     public boolean doHurtTarget(Entity target) {
-        boolean hit = super.doHurtTarget(target);
-        if (hit) {
-            target.setSecondsOnFire(4);
-        }
-        return hit;
+        target.setSecondsOnFire(3);
+        return super.doHurtTarget(target);
     }
 
     @Override
-    @Nullable
-    public SpawnGroupData finalizeSpawn(ServerLevelAccessor level, DifficultyInstance difficulty, MobSpawnType reason,
-                                        @Nullable SpawnGroupData data, @Nullable CompoundTag tag) {
-        SpawnGroupData result = super.finalizeSpawn(level, difficulty, reason, new Zombie.ZombieGroupData(true, false), tag);
-        setBaby(true);
-        return result;
+    protected SoundEvent getAmbientSound() {
+        return SoundEvents.BLAZE_AMBIENT;
     }
 
     @Override
-    protected void handleAttributes(float difficulty) {
+    protected SoundEvent getHurtSound(DamageSource source) {
+        return SoundEvents.BLAZE_HURT;
     }
 
     @Override
-    protected boolean isSunSensitive() {
-        return false;
-    }
-
-    @Override
-    protected boolean convertsInWater() {
-        return false;
-    }
-
-    @Override
-    public void aiStep() {
-        super.aiStep();
-        if (!level().isClientSide) {
-            link.tick(this);
-        }
-    }
-
-    @Override
-    public boolean removeWhenFarAway(double distance) {
-        return !link.hasNexus() && super.removeWhenFarAway(distance);
-    }
-
-    @Override
-    public void addAdditionalSaveData(CompoundTag tag) {
-        super.addAdditionalSaveData(tag);
-        link.save(tag);
-    }
-
-    @Override
-    public void readAdditionalSaveData(CompoundTag tag) {
-        super.readAdditionalSaveData(tag);
-        link.load(tag);
-        setBaby(true);
+    protected SoundEvent getDeathSound() {
+        return SoundEvents.BLAZE_DEATH;
     }
 }

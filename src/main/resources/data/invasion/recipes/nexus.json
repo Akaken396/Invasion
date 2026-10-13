@@ -2,19 +2,19 @@
   "type": "minecraft:crafting_shaped",
   "category": "misc",
   "pattern": [
-    "OLO",
-    "LPL",
-    "OLO"
+    " X ",
+    "#D#",
+    " # "
   ],
   "key": {
-    "O": {
-      "item": "minecraft:obsidian"
-    },
-    "L": {
-      "item": "minecraft:lapis_block"
-    },
-    "P": {
+    "X": {
       "item": "invasion:phase_crystal"
+    },
+    "#": {
+      "item": "minecraft:redstone"
+    },
+    "D": {
+      "item": "minecraft:obsidian"
     }
   },
   "result": {

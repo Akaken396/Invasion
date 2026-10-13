@@ -14,7 +14,9 @@
     "minecraft:structure_block",
     "minecraft:jigsaw",
     "minecraft:reinforced_deepslate",
-    "minecraft:spawner",
+    "minecraft:ladder",
+    "minecraft:chest",
+    "minecraft:trapped_chest",
     "invasion:nexus"
   ]
 }

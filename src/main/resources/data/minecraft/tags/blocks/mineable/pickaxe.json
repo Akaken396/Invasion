@@ -1,9 +1,6 @@
 {
   "replace": false,
   "values": [
-    "invasion:nexus",
-    "invasion:empty_trap",
-    "invasion:rift_trap",
-    "invasion:flame_trap"
+    "invasion:nexus"
   ]
 }

@@ -1,0 +1,24 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "equipment",
+  "pattern": [
+    "D",
+    "#",
+    "X"
+  ],
+  "key": {
+    "D": {
+      "item": "invasion:nexus_adjuster"
+    },
+    "#": {
+      "item": "invasion:phase_crystal"
+    },
+    "X": {
+      "item": "minecraft:blaze_rod"
+    }
+  },
+  "result": {
+    "item": "invasion:material_probe",
+    "count": 1
+  }
+}

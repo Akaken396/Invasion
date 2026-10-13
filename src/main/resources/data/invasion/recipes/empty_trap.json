@@ -2,20 +2,20 @@
   "type": "minecraft:crafting_shaped",
   "category": "misc",
   "pattern": [
-    " I ",
-    "IFI",
-    " I "
+    " X ",
+    "X#X",
+    " X "
   ],
   "key": {
-    "I": {
+    "X": {
       "item": "minecraft:iron_ingot"
     },
-    "F": {
+    "#": {
       "item": "invasion:rift_flux"
     }
   },
   "result": {
     "item": "invasion:empty_trap",
-    "count": 2
+    "count": 1
   }
 }

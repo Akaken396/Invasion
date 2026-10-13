@@ -5,55 +5,75 @@ import net.minecraftforge.common.ForgeConfigSpec;
 public final class Config {
     private static final ForgeConfigSpec.Builder BUILDER = new ForgeConfigSpec.Builder();
 
+    // Nexus
     public static final ForgeConfigSpec.IntValue DEFAULT_SPAWN_RADIUS;
-    public static final ForgeConfigSpec.IntValue NEXUS_MAX_HP;
-    public static final ForgeConfigSpec.IntValue MAX_ALIVE_MOBS;
-    public static final ForgeConfigSpec.IntValue MAX_WAVE_SIZE;
-    public static final ForgeConfigSpec.IntValue WAVE_REST_SECONDS;
-    public static final ForgeConfigSpec.IntValue CONTINUOUS_INTERVAL_SECONDS;
-    public static final ForgeConfigSpec.IntValue KILLS_PER_RIFT_FLUX;
-    public static final ForgeConfigSpec.DoubleValue RIFT_FLUX_DROP_CHANCE;
-    public static final ForgeConfigSpec.BooleanValue MOBS_DESTROY_BLOCKS;
-    public static final ForgeConfigSpec.BooleanValue MOBS_BUILD;
-    public static final ForgeConfigSpec.BooleanValue DROP_DESTROYED_BLOCKS;
-    public static final ForgeConfigSpec.DoubleValue MAX_DIG_HARDNESS;
+    public static final ForgeConfigSpec.BooleanValue DESTROYED_NEXUS_KILLS_PLAYERS;
+    public static final ForgeConfigSpec.IntValue MIN_CONTINUOUS_DAYS;
+    public static final ForgeConfigSpec.IntValue MAX_CONTINUOUS_DAYS;
+
+    // Mobs
+    public static final ForgeConfigSpec.BooleanValue DESTROYED_BLOCKS_DROP;
     public static final ForgeConfigSpec.DoubleValue DIG_SPEED;
+
+    // Health (as in the original "invasionSpawn-health" settings)
+    public static final ForgeConfigSpec.IntValue HP_ZOMBIE_T1;
+    public static final ForgeConfigSpec.IntValue HP_ZOMBIE_T2;
+    public static final ForgeConfigSpec.IntValue HP_ZOMBIE_T3;
+    public static final ForgeConfigSpec.IntValue HP_ZOMBIE_PIGMAN_T1;
+    public static final ForgeConfigSpec.IntValue HP_ZOMBIE_PIGMAN_T2;
+    public static final ForgeConfigSpec.IntValue HP_ZOMBIE_PIGMAN_T3;
+    public static final ForgeConfigSpec.IntValue HP_SPIDER_T1;
+    public static final ForgeConfigSpec.IntValue HP_SPIDER_T1_BABY;
+    public static final ForgeConfigSpec.IntValue HP_SPIDER_T2_JUMPER;
+    public static final ForgeConfigSpec.IntValue HP_SPIDER_T2_MOTHER;
+    public static final ForgeConfigSpec.IntValue HP_THROWER_T1;
+    public static final ForgeConfigSpec.IntValue HP_THROWER_T2;
+    public static final ForgeConfigSpec.IntValue HP_PIG_ENGINEER;
+    public static final ForgeConfigSpec.IntValue HP_SKELETON;
+    public static final ForgeConfigSpec.IntValue HP_CREEPER;
+    public static final ForgeConfigSpec.IntValue HP_IMP;
 
     static {
         BUILDER.push("nexus");
-        DEFAULT_SPAWN_RADIUS = BUILDER.comment("Default distance (in blocks) from the Nexus at which invaders spawn.")
-                .defineInRange("defaultSpawnRadius", 45, 16, 128);
-        NEXUS_MAX_HP = BUILDER.comment("Hit points of the Nexus.")
-                .defineInRange("nexusMaxHp", 100, 1, 10000);
-        KILLS_PER_RIFT_FLUX = BUILDER.comment("Number of invader kills needed for the Nexus to generate one Rift Flux.")
-                .defineInRange("killsPerRiftFlux", 6, 1, 1000);
-        BUILDER.pop();
-
-        BUILDER.push("waves");
-        MAX_ALIVE_MOBS = BUILDER.comment("Maximum number of invaders alive at the same time per Nexus.")
-                .defineInRange("maxAliveMobs", 40, 1, 500);
-        MAX_WAVE_SIZE = BUILDER.comment("Maximum number of invaders in a single wave.")
-                .defineInRange("maxWaveSize", 80, 1, 1000);
-        WAVE_REST_SECONDS = BUILDER.comment("Pause between waves in wave mode.")
-                .defineInRange("waveRestSeconds", 20, 0, 3600);
-        CONTINUOUS_INTERVAL_SECONDS = BUILDER.comment("Pause between attacks in continuous mode.")
-                .defineInRange("continuousIntervalSeconds", 180, 10, 86400);
-        RIFT_FLUX_DROP_CHANCE = BUILDER.comment("Chance for an invader to drop Rift Flux on death.")
-                .defineInRange("riftFluxDropChance", 0.2D, 0.0D, 1.0D);
+        DEFAULT_SPAWN_RADIUS = BUILDER.comment("Default spawn radius of a new Nexus. Change it in game with the Nexus Adjuster.")
+                .defineInRange("defaultSpawnRadius", 52, 32, 128);
+        DESTROYED_NEXUS_KILLS_PLAYERS = BUILDER.comment("Like the original mod: players whose life is bound to a Nexus die when it is destroyed in wave mode.")
+                .define("destroyedNexusKillsBoundPlayers", true);
+        MIN_CONTINUOUS_DAYS = BUILDER.comment("Minimum number of days between attacks in continuous mode.")
+                .defineInRange("minDaysToAttack", 2, 0, 1000);
+        MAX_CONTINUOUS_DAYS = BUILDER.comment("Maximum number of days between attacks in continuous mode.")
+                .defineInRange("maxDaysToAttack", 3, 0, 1000);
         BUILDER.pop();
 
         BUILDER.push("mobs");
-        MOBS_DESTROY_BLOCKS = BUILDER.comment("Whether invaders dig through blocks to reach the Nexus.")
-                .define("mobsDestroyBlocks", true);
-        MOBS_BUILD = BUILDER.comment("Whether Pig Engineers place blocks (pillars and bridges).")
-                .define("mobsBuild", true);
-        DROP_DESTROYED_BLOCKS = BUILDER.comment("Whether blocks destroyed by invaders drop as items.")
-                .define("dropDestroyedBlocks", false);
-        MAX_DIG_HARDNESS = BUILDER.comment("Blocks harder than this cannot be dug by invaders (obsidian = 50).")
-                .defineInRange("maxDigHardness", 50.0D, 0.0D, 10000.0D);
-        DIG_SPEED = BUILDER.comment("Multiplier for invader digging speed.")
+        DESTROYED_BLOCKS_DROP = BUILDER.comment("Whether blocks destroyed by invaders drop as items. Invaders only destroy blocks when the mobGriefing game rule is on.")
+                .define("destructedBlocksDrop", true);
+        DIG_SPEED = BUILDER.comment("Multiplier for the digging speed of invaders.")
                 .defineInRange("digSpeed", 1.0D, 0.01D, 100.0D);
         BUILDER.pop();
+
+        BUILDER.push("health");
+        HP_ZOMBIE_T1 = hp("zombieT1", 20);
+        HP_ZOMBIE_T2 = hp("zombieT2", 30);
+        HP_ZOMBIE_T3 = hp("zombieT3", 65);
+        HP_ZOMBIE_PIGMAN_T1 = hp("zombiePigmanT1", 20);
+        HP_ZOMBIE_PIGMAN_T2 = hp("zombiePigmanT2", 30);
+        HP_ZOMBIE_PIGMAN_T3 = hp("zombiePigmanT3", 65);
+        HP_SPIDER_T1 = hp("spiderT1", 18);
+        HP_SPIDER_T1_BABY = hp("spiderT1Baby", 3);
+        HP_SPIDER_T2_JUMPER = hp("spiderT2Jumping", 18);
+        HP_SPIDER_T2_MOTHER = hp("spiderT2Mother", 23);
+        HP_THROWER_T1 = hp("throwerT1", 50);
+        HP_THROWER_T2 = hp("throwerT2", 70);
+        HP_PIG_ENGINEER = hp("pigEngineerT1", 20);
+        HP_SKELETON = hp("skeletonT1", 20);
+        HP_CREEPER = hp("creeperT1", 20);
+        HP_IMP = hp("impT1", 20);
+        BUILDER.pop();
+    }
+
+    private static ForgeConfigSpec.IntValue hp(String name, int def) {
+        return BUILDER.defineInRange(name, def, 1, 10000);
     }
 
     public static final ForgeConfigSpec SPEC = BUILDER.build();

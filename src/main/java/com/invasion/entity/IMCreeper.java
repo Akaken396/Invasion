@@ -1,12 +1,16 @@
 package com.invasion.entity;
 
-import com.invasion.blockentity.NexusBlockEntity;
+import com.invasion.Config;
 import com.invasion.entity.ai.InvasionTargetGoal;
 import com.invasion.entity.ai.NexusAttackGoal;
+import com.invasion.nexus.wave.EntityConstruct;
 import net.minecraft.core.BlockPos;
 import net.minecraft.nbt.CompoundTag;
+import net.minecraft.world.DifficultyInstance;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.MobSpawnType;
+import net.minecraft.world.entity.SpawnGroupData;
 import net.minecraft.world.entity.ai.attributes.AttributeSupplier;
 import net.minecraft.world.entity.ai.attributes.Attributes;
 import net.minecraft.world.entity.ai.goal.FloatGoal;
@@ -18,13 +22,13 @@ import net.minecraft.world.entity.ai.goal.target.HurtByTargetGoal;
 import net.minecraft.world.entity.monster.Creeper;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.Level;
+import net.minecraft.world.level.ServerLevelAccessor;
+import org.jetbrains.annotations.Nullable;
 
-/** Walks up to the Nexus (or a defender) and explodes, dealing heavy damage to the Nexus. */
+/** Creeper that blows itself up to breach walls standing between it and the Nexus. */
 public class IMCreeper extends Creeper implements InvasionMob {
-    private static final int NEXUS_EXPLOSION_DAMAGE = 12;
-
     private final NexusLink link = new NexusLink();
-    private boolean primedAtNexus;
+    private boolean commitToExplode;
 
     public IMCreeper(EntityType<? extends Creeper> type, Level level) {
         super(type, level);
@@ -42,8 +46,9 @@ public class IMCreeper extends Creeper implements InvasionMob {
         goalSelector.addGoal(7, new WaterAvoidingRandomStrollGoal(this, 0.8D));
         goalSelector.addGoal(8, new LookAtPlayerGoal(this, Player.class, 8.0F));
         goalSelector.addGoal(8, new RandomLookAroundGoal(this));
-        targetSelector.addGoal(1, new HurtByTargetGoal(this));
-        targetSelector.addGoal(2, new InvasionTargetGoal<>(this, Player.class));
+        targetSelector.addGoal(0, new HurtByTargetGoal(this));
+        targetSelector.addGoal(1, new InvasionTargetGoal<>(this, Player.class, InvasionTargetGoal.SENSE_RANGE, false));
+        targetSelector.addGoal(2, new InvasionTargetGoal<>(this, Player.class, InvasionTargetGoal.AGGRO_RANGE, true));
     }
 
     @Override
@@ -52,41 +57,35 @@ public class IMCreeper extends Creeper implements InvasionMob {
     }
 
     @Override
-    public int getNexusAttackInterval() {
-        return 10;
+    public void applyConstruct(@Nullable EntityConstruct construct) {
+        getAttribute(Attributes.MAX_HEALTH).setBaseValue(Config.HP_CREEPER.get());
+        setHealth(getMaxHealth());
     }
 
     @Override
-    public void attackNexus(NexusBlockEntity nexus) {
-        primedAtNexus = true;
-        setSwellDir(1);
+    @Nullable
+    public SpawnGroupData finalizeSpawn(ServerLevelAccessor level, DifficultyInstance difficulty, MobSpawnType reason,
+                                        @Nullable SpawnGroupData data, @Nullable CompoundTag tag) {
+        SpawnGroupData result = super.finalizeSpawn(level, difficulty, reason, data, tag);
+        applyConstruct(null);
+        return result;
+    }
+
+    /** Blocked on the way to the Nexus: light the fuse and blow the wall away. */
+    @Override
+    public boolean handleObstacle(BlockPos nexusPos) {
+        commitToExplode = true;
+        return true;
     }
 
     @Override
     public void tick() {
         if (!level().isClientSide && isAlive()) {
-            updateSwell();
+            LivingEntity target = getTarget();
+            boolean nearTarget = target != null && target.isAlive() && distanceToSqr(target) < 9.0D && hasLineOfSight(target);
+            setSwellDir(nearTarget || commitToExplode ? 1 : -1);
         }
-        boolean wasAlive = isAlive();
-        boolean swelling = getSwellDir() > 0;
         super.tick();
-        if (!level().isClientSide && wasAlive && swelling && isRemoved() && primedAtNexus) {
-            NexusBlockEntity nexus = link.getNexus(level());
-            BlockPos pos = link.getNexusPos();
-            if (nexus != null && pos != null && distanceToSqr(pos.getX() + 0.5D, pos.getY() + 0.5D, pos.getZ() + 0.5D) < 25.0D) {
-                nexus.damageNexus(NEXUS_EXPLOSION_DAMAGE);
-            }
-        }
-    }
-
-    /** Replaces the vanilla swell goal: ignite next to defenders, keep fuse burning once primed at the Nexus. */
-    private void updateSwell() {
-        LivingEntity target = getTarget();
-        if (target != null && target.isAlive() && distanceToSqr(target) < 9.0D && hasLineOfSight(target)) {
-            setSwellDir(1);
-        } else if (!primedAtNexus) {
-            setSwellDir(-1);
-        }
     }
 
     @Override

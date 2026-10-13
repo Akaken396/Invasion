@@ -2,13 +2,5 @@
   "parent": "minecraft:item/handheld",
   "textures": {
     "layer0": "invasion:item/infused_sword"
-  },
-  "overrides": [
-    {
-      "predicate": {
-        "invasion:charged": 1
-      },
-      "model": "invasion:item/infused_sword_charged"
-    }
-  ]
+  }
 }

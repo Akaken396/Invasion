@@ -1,0 +1,16 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "pattern": [
+    "X X"
+  ],
+  "key": {
+    "X": {
+      "item": "invasion:rift_flux"
+    }
+  },
+  "result": {
+    "item": "minecraft:redstone",
+    "count": 24
+  }
+}

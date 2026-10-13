@@ -1,20 +1,14 @@
 {
   "type": "minecraft:crafting_shaped",
-  "category": "misc",
+  "category": "equipment",
   "pattern": [
-    " R ",
-    "IFI",
-    " I "
+    " X",
+    "XX",
+    "XX"
   ],
   "key": {
-    "R": {
-      "item": "minecraft:redstone"
-    },
-    "I": {
+    "X": {
       "item": "minecraft:iron_ingot"
-    },
-    "F": {
-      "item": "invasion:rift_flux"
     }
   },
   "result": {

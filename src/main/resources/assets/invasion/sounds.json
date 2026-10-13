@@ -1,0 +1,49 @@
+{
+  "scrape": {
+    "subtitle": "subtitles.invasion.scrape",
+    "sounds": [
+      "invasion:scrape1",
+      "invasion:scrape2",
+      "invasion:scrape3"
+    ]
+  },
+  "bigzombie": {
+    "subtitle": "subtitles.invasion.bigzombie",
+    "sounds": [
+      "invasion:bigzombie1"
+    ]
+  },
+  "chime": {
+    "subtitle": "subtitles.invasion.chime",
+    "sounds": [
+      "invasion:chime1"
+    ]
+  },
+  "rumble": {
+    "subtitle": "subtitles.invasion.rumble",
+    "sounds": [
+      "invasion:rumble1"
+    ]
+  },
+  "zap": {
+    "subtitle": "subtitles.invasion.zap",
+    "sounds": [
+      "invasion:zap1",
+      "invasion:zap2",
+      "invasion:zap3"
+    ]
+  },
+  "fireball": {
+    "subtitle": "subtitles.invasion.fireball",
+    "sounds": [
+      "invasion:fireball1"
+    ]
+  },
+  "egghatch": {
+    "subtitle": "subtitles.invasion.egghatch",
+    "sounds": [
+      "invasion:egghatch1",
+      "invasion:egghatch2"
+    ]
+  }
+}

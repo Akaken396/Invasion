@@ -1,16 +1,16 @@
 {
   "type": "minecraft:crafting_shaped",
-  "category": "misc",
+  "category": "equipment",
   "pattern": [
-    " F ",
-    "FSF",
-    " F "
+    "X ",
+    "X#",
+    "X "
   ],
   "key": {
-    "F": {
+    "X": {
       "item": "invasion:rift_flux"
     },
-    "S": {
+    "#": {
       "item": "minecraft:diamond_sword"
     }
   },

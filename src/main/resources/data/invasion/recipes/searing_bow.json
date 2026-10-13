@@ -1,19 +1,16 @@
 {
   "type": "minecraft:crafting_shaped",
-  "category": "misc",
+  "category": "equipment",
   "pattern": [
-    " F ",
-    "PBP",
-    " F "
+    "XXX",
+    "X# ",
+    "X  "
   ],
   "key": {
-    "F": {
+    "X": {
       "item": "invasion:rift_flux"
     },
-    "P": {
-      "item": "minecraft:blaze_powder"
-    },
-    "B": {
+    "#": {
       "item": "minecraft:bow"
     }
   },

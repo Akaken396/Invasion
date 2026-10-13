@@ -1,0 +1,18 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "pattern": [
+    "XXX",
+    "XXX",
+    "XXX"
+  ],
+  "key": {
+    "X": {
+      "item": "invasion:small_remnants"
+    }
+  },
+  "result": {
+    "item": "invasion:rift_flux",
+    "count": 1
+  }
+}

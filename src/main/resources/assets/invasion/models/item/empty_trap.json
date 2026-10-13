@@ -1,3 +1,6 @@
 {
-  "parent": "invasion:block/empty_trap"
+  "parent": "minecraft:item/generated",
+  "textures": {
+    "layer0": "invasion:item/empty_trap"
+  }
 }

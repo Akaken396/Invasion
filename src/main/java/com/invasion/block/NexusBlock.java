@@ -61,6 +61,10 @@ public class NexusBlock extends BaseEntityBlock {
     @Override
     @SuppressWarnings("deprecation")
     public InteractionResult use(BlockState state, Level level, BlockPos pos, Player player, InteractionHand hand, BlockHitResult hit) {
+        // Let the Nexus Adjuster / Material Probe act on the Nexus instead of opening the interface.
+        if (player.getItemInHand(hand).getItem() instanceof com.invasion.item.NexusAdjusterItem) {
+            return InteractionResult.PASS;
+        }
         if (!level.isClientSide && player instanceof ServerPlayer serverPlayer
                 && level.getBlockEntity(pos) instanceof NexusBlockEntity nexus) {
             NetworkHooks.openScreen(serverPlayer, nexus, pos);
@@ -91,13 +95,29 @@ public class NexusBlock extends BaseEntityBlock {
 
     @Override
     public void animateTick(BlockState state, Level level, BlockPos pos, RandomSource random) {
-        int count = state.getValue(ACTIVE) ? 6 : 1;
-        for (int i = 0; i < count; i++) {
-            double x = pos.getX() + 0.5D + (random.nextDouble() - 0.5D) * 1.6D;
-            double y = pos.getY() + random.nextDouble() * 1.4D;
-            double z = pos.getZ() + 0.5D + (random.nextDouble() - 0.5D) * 1.6D;
-            level.addParticle(ParticleTypes.PORTAL, x, y, z,
-                    (pos.getX() + 0.5D - x) * 0.5D, (pos.getY() + 0.5D - y) * 0.5D, (pos.getZ() + 0.5D - z) * 0.5D);
+        if (!state.getValue(ACTIVE)) {
+            return;
+        }
+        for (int i = 0; i < 6; i++) {
+            double y1 = pos.getY() + random.nextFloat();
+            double y2 = (random.nextFloat() - 0.5D) * 0.5D;
+            int direction = random.nextInt(2) * 2 - 1;
+            double x1;
+            double x2;
+            double z1;
+            double z2;
+            if (random.nextBoolean()) {
+                z1 = pos.getZ() + 0.5D + 0.25D * direction;
+                z2 = random.nextFloat() * 2.0F * direction;
+                x1 = pos.getX() + random.nextFloat();
+                x2 = (random.nextFloat() - 0.5D) * 0.5D;
+            } else {
+                x1 = pos.getX() + 0.5D + 0.25D * direction;
+                x2 = random.nextFloat() * 2.0F * direction;
+                z1 = pos.getZ() + random.nextFloat();
+                z2 = (random.nextFloat() - 0.5D) * 0.5D;
+            }
+            level.addParticle(ParticleTypes.PORTAL, x1, y1, z1, x2, y2, z2);
         }
     }
 }

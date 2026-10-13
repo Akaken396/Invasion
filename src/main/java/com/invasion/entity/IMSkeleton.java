@@ -1,7 +1,9 @@
 package com.invasion.entity;
 
+import com.invasion.Config;
 import com.invasion.entity.ai.InvasionTargetGoal;
 import com.invasion.entity.ai.NexusAttackGoal;
+import com.invasion.nexus.wave.EntityConstruct;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.world.DifficultyInstance;
 import net.minecraft.world.entity.EntityType;
@@ -24,7 +26,7 @@ import net.minecraft.world.level.Level;
 import net.minecraft.world.level.ServerLevelAccessor;
 import org.jetbrains.annotations.Nullable;
 
-/** Shoots at defenders near its path and attacks the Nexus up close. Does not burn in daylight. */
+/** Skeleton archer that shoots at defenders on its way to the Nexus. */
 public class IMSkeleton extends Skeleton implements InvasionMob {
     private final NexusLink link = new NexusLink();
 
@@ -38,14 +40,15 @@ public class IMSkeleton extends Skeleton implements InvasionMob {
 
     @Override
     protected void registerGoals() {
-        // The bow / melee attack goal is added by AbstractSkeleton#reassessWeaponGoal.
+        // The bow / melee goal is added by AbstractSkeleton#reassessWeaponGoal.
         goalSelector.addGoal(0, new FloatGoal(this));
         goalSelector.addGoal(5, new NexusAttackGoal<>(this, 1.0D));
         goalSelector.addGoal(7, new WaterAvoidingRandomStrollGoal(this, 0.8D));
         goalSelector.addGoal(8, new LookAtPlayerGoal(this, Player.class, 8.0F));
         goalSelector.addGoal(8, new RandomLookAroundGoal(this));
-        targetSelector.addGoal(1, new HurtByTargetGoal(this));
-        targetSelector.addGoal(2, new InvasionTargetGoal<>(this, Player.class));
+        targetSelector.addGoal(0, new HurtByTargetGoal(this));
+        targetSelector.addGoal(1, new InvasionTargetGoal<>(this, Player.class, InvasionTargetGoal.SENSE_RANGE, false));
+        targetSelector.addGoal(2, new InvasionTargetGoal<>(this, Player.class, InvasionTargetGoal.AGGRO_RANGE, true));
     }
 
     @Override
@@ -54,8 +57,9 @@ public class IMSkeleton extends Skeleton implements InvasionMob {
     }
 
     @Override
-    public void onInvasionSpawn(int power) {
-        InvasionMob.super.onInvasionSpawn(power);
+    public void applyConstruct(EntityConstruct construct) {
+        getAttribute(Attributes.MAX_HEALTH).setBaseValue(Config.HP_SKELETON.get());
+        setHealth(getMaxHealth());
         setItemSlot(EquipmentSlot.MAINHAND, new ItemStack(Items.BOW));
     }
 
@@ -64,13 +68,13 @@ public class IMSkeleton extends Skeleton implements InvasionMob {
     public SpawnGroupData finalizeSpawn(ServerLevelAccessor level, DifficultyInstance difficulty, MobSpawnType reason,
                                         @Nullable SpawnGroupData data, @Nullable CompoundTag tag) {
         SpawnGroupData result = super.finalizeSpawn(level, difficulty, reason, data, tag);
-        setItemSlot(EquipmentSlot.MAINHAND, new ItemStack(Items.BOW));
+        applyConstruct(null);
         return result;
     }
 
     @Override
     protected boolean isSunBurnTick() {
-        return false;
+        return !link.hasNexus() && super.isSunBurnTick();
     }
 
     @Override

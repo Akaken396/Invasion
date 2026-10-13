@@ -17,13 +17,8 @@ import net.minecraftforge.items.ItemStackHandler;
 import net.minecraftforge.items.SlotItemHandler;
 import org.jetbrains.annotations.NotNull;
 
+/** Nexus container with the slot layout of the original GUI. */
 public class NexusMenu extends AbstractContainerMenu {
-    public static final int INPUT_X = 26;
-    public static final int INPUT_Y = 24;
-    public static final int OUTPUT_X = 26;
-    public static final int OUTPUT_Y = 66;
-    public static final int INVENTORY_Y = 104;
-
     private final ContainerData data;
     private final ContainerLevelAccess access;
 
@@ -43,36 +38,63 @@ public class NexusMenu extends AbstractContainerMenu {
         this.access = access;
         checkContainerDataCount(data, NexusBlockEntity.DATA_COUNT);
 
-        addSlot(new SlotItemHandler(items, NexusBlockEntity.SLOT_INPUT, INPUT_X, INPUT_Y) {
-            @Override
-            public boolean mayPlace(@NotNull ItemStack stack) {
-                return NexusBlockEntity.isInputItem(stack);
-            }
-        });
-        addSlot(new SlotItemHandler(items, NexusBlockEntity.SLOT_OUTPUT, OUTPUT_X, OUTPUT_Y) {
+        addSlot(new SlotItemHandler(items, NexusBlockEntity.SLOT_INPUT, 32, 33));
+        addSlot(new SlotItemHandler(items, NexusBlockEntity.SLOT_OUTPUT, 102, 33) {
             @Override
             public boolean mayPlace(@NotNull ItemStack stack) {
                 return false;
             }
         });
-
         for (int row = 0; row < 3; row++) {
             for (int col = 0; col < 9; col++) {
-                addSlot(new Slot(inventory, col + row * 9 + 9, 8 + col * 18, INVENTORY_Y + row * 18));
+                addSlot(new Slot(inventory, col + row * 9 + 9, 8 + col * 18, 84 + row * 18));
             }
         }
         for (int col = 0; col < 9; col++) {
-            addSlot(new Slot(inventory, col, 8 + col * 18, INVENTORY_Y + 58));
+            addSlot(new Slot(inventory, col, 8 + col * 18, 142));
         }
         addDataSlots(data);
     }
 
-    public int get(int index) {
-        return data.get(index);
+    public int getMode() {
+        return data.get(0);
     }
 
-    public boolean isActive() {
-        return data.get(0) != 0;
+    public int getActivationTimer() {
+        return data.get(1);
+    }
+
+    public int getNexusLevel() {
+        return data.get(2);
+    }
+
+    public int getKills() {
+        return data.get(3);
+    }
+
+    public int getSpawnRadius() {
+        return data.get(4);
+    }
+
+    public int getCurrentWave() {
+        return data.get(5);
+    }
+
+    public int getPowerLevel() {
+        return data.get(6);
+    }
+
+    public int getGeneration() {
+        return data.get(7);
+    }
+
+    public int getCookTime() {
+        return data.get(8);
+    }
+
+    public boolean isActivating() {
+        int timer = getActivationTimer();
+        return timer > 0 && timer < NexusBlockEntity.ACTIVATION_TIME;
     }
 
     @Override
@@ -83,17 +105,11 @@ public class NexusMenu extends AbstractContainerMenu {
         }
         ItemStack stack = slot.getItem();
         ItemStack copy = stack.copy();
-        int playerStart = 2;
-        int playerEnd = slots.size();
-        if (index < playerStart) {
-            if (!moveItemStackTo(stack, playerStart, playerEnd, true)) {
+        if (index < 2) {
+            if (!moveItemStackTo(stack, 2, slots.size(), true)) {
                 return ItemStack.EMPTY;
             }
-        } else if (NexusBlockEntity.isInputItem(stack)) {
-            if (!moveItemStackTo(stack, NexusBlockEntity.SLOT_INPUT, NexusBlockEntity.SLOT_INPUT + 1, false)) {
-                return ItemStack.EMPTY;
-            }
-        } else {
+        } else if (!moveItemStackTo(stack, NexusBlockEntity.SLOT_INPUT, NexusBlockEntity.SLOT_INPUT + 1, false)) {
             return ItemStack.EMPTY;
         }
         if (stack.isEmpty()) {

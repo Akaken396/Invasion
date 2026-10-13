@@ -1,60 +1,48 @@
 package com.invasion.entity;
 
-import com.invasion.entity.ai.InvasionTargetGoal;
-import com.invasion.entity.ai.NexusAttackGoal;
+import com.invasion.Config;
 import com.invasion.registry.ModItems;
-import net.minecraft.nbt.CompoundTag;
-import net.minecraft.world.DifficultyInstance;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
+import net.minecraft.sounds.SoundEvent;
+import net.minecraft.sounds.SoundEvents;
+import net.minecraft.sounds.SoundSource;
+import net.minecraft.util.Mth;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.EquipmentSlot;
-import net.minecraft.world.entity.MobSpawnType;
-import net.minecraft.world.entity.SpawnGroupData;
 import net.minecraft.world.entity.ai.attributes.AttributeSupplier;
 import net.minecraft.world.entity.ai.attributes.Attributes;
-import net.minecraft.world.entity.ai.goal.FloatGoal;
-import net.minecraft.world.entity.ai.goal.LookAtPlayerGoal;
-import net.minecraft.world.entity.ai.goal.MeleeAttackGoal;
-import net.minecraft.world.entity.ai.goal.RandomLookAroundGoal;
-import net.minecraft.world.entity.ai.goal.WaterAvoidingRandomStrollGoal;
-import net.minecraft.world.entity.ai.goal.target.HurtByTargetGoal;
-import net.minecraft.world.entity.monster.Zombie;
-import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
+import net.minecraft.world.level.GameRules;
 import net.minecraft.world.level.Level;
-import net.minecraft.world.level.ServerLevelAccessor;
-import org.jetbrains.annotations.Nullable;
+import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.block.LadderBlock;
+import net.minecraft.world.level.block.state.BlockState;
 
-/** Pig Engineer: builds pillars and bridges to reach the Nexus and digs quickly with its hammer. */
-public class IMPigEngy extends Zombie implements InvasionMob {
-    private final NexusLink link = new NexusLink();
+/**
+ * Pigman Engineer: digs with its hammer and builds ladders up walls (and
+ * bridges over gaps) so that it and the invaders following it can reach the Nexus.
+ */
+public class IMPigEngy extends InvasionMonster {
+    private static final int MAX_LADDER = 12;
+    private int buildCooldown;
 
-    public IMPigEngy(EntityType<? extends Zombie> type, Level level) {
+    public IMPigEngy(EntityType<? extends IMPigEngy> type, Level level) {
         super(type, level);
     }
 
     public static AttributeSupplier.Builder createInvasionAttributes() {
-        return Zombie.createAttributes()
-                .add(Attributes.MAX_HEALTH, 22.0D)
-                .add(Attributes.MOVEMENT_SPEED, 0.22D)
-                .add(Attributes.FOLLOW_RANGE, 64.0D)
-                .add(Attributes.SPAWN_REINFORCEMENTS_CHANCE, 0.0D);
+        return createBaseAttributes().add(Attributes.ATTACK_DAMAGE, 2.0D).add(Attributes.MOVEMENT_SPEED, 0.276D);
     }
 
     @Override
-    protected void registerGoals() {
-        goalSelector.addGoal(0, new FloatGoal(this));
-        goalSelector.addGoal(2, new MeleeAttackGoal(this, 1.0D, false));
-        goalSelector.addGoal(3, new NexusAttackGoal<>(this, 1.0D));
-        goalSelector.addGoal(7, new WaterAvoidingRandomStrollGoal(this, 0.8D));
-        goalSelector.addGoal(8, new LookAtPlayerGoal(this, Player.class, 8.0F));
-        goalSelector.addGoal(8, new RandomLookAroundGoal(this));
-        targetSelector.addGoal(1, new HurtByTargetGoal(this));
-        targetSelector.addGoal(2, new InvasionTargetGoal<>(this, Player.class));
-    }
-
-    @Override
-    public NexusLink getNexusLink() {
-        return link;
+    protected void applyStats(int tier, int flavour) {
+        setStats(Config.HP_PIG_ENGINEER.get(), 0.23D * 1.2D, 2);
+        setItemSlot(EquipmentSlot.MAINHAND, new ItemStack(ModItems.ENGY_HAMMER.get()));
+        setDropChance(EquipmentSlot.MAINHAND, 0.0F);
     }
 
     @Override
@@ -63,72 +51,97 @@ public class IMPigEngy extends Zombie implements InvasionMob {
     }
 
     @Override
-    public boolean canBuild() {
-        return true;
-    }
-
-    @Override
-    public float getDigSpeed() {
-        return 1.6F;
-    }
-
-    @Override
-    public void onInvasionSpawn(int power) {
-        InvasionMob.super.onInvasionSpawn(power);
-        equipHammer();
-    }
-
-    private void equipHammer() {
-        setItemSlot(EquipmentSlot.MAINHAND, new ItemStack(ModItems.ENGY_HAMMER.get()));
-        setDropChance(EquipmentSlot.MAINHAND, 0.05F);
-    }
-
-    @Override
-    @Nullable
-    public SpawnGroupData finalizeSpawn(ServerLevelAccessor level, DifficultyInstance difficulty, MobSpawnType reason,
-                                        @Nullable SpawnGroupData data, @Nullable CompoundTag tag) {
-        SpawnGroupData result = super.finalizeSpawn(level, difficulty, reason, new Zombie.ZombieGroupData(false, false), tag);
-        setBaby(false);
-        equipHammer();
-        return result;
-    }
-
-    @Override
-    protected void handleAttributes(float difficulty) {
-    }
-
-    @Override
-    protected boolean isSunSensitive() {
-        return false;
-    }
-
-    @Override
-    protected boolean convertsInWater() {
-        return false;
-    }
-
-    @Override
     public void aiStep() {
         super.aiStep();
-        if (!level().isClientSide) {
-            link.tick(this);
+        if (buildCooldown > 0) {
+            buildCooldown--;
         }
     }
 
     @Override
-    public boolean removeWhenFarAway(double distance) {
-        return !link.hasNexus() && super.removeWhenFarAway(distance);
+    public boolean handleObstacle(BlockPos nexusPos) {
+        if (buildCooldown > 0 || !level().getGameRules().getBoolean(GameRules.RULE_MOBGRIEFING)) {
+            return false;
+        }
+        BlockPos feet = blockPosition();
+        Direction dir = Direction.getNearest(nexusPos.getX() + 0.5D - getX(), 0.0D, nexusPos.getZ() + 0.5D - getZ());
+        int dy = nexusPos.getY() - feet.getY();
+        if (dy >= 1 && buildLadder(feet, dir, dy)) {
+            return true;
+        }
+        return dy >= -1 && buildBridge(feet, dir);
+    }
+
+    /** Places a ladder column against the wall in front so that invaders can climb it. */
+    private boolean buildLadder(BlockPos feet, Direction dir, int dy) {
+        Level level = level();
+        BlockPos wall = feet.relative(dir);
+        if (!level.getBlockState(wall).isFaceSturdy(level, wall, dir.getOpposite())) {
+            return false;
+        }
+        BlockState ladder = Blocks.LADDER.defaultBlockState().setValue(LadderBlock.FACING, dir.getOpposite());
+        int placed = 0;
+        int height = Mth.clamp(dy + 1, 2, MAX_LADDER);
+        for (int i = 0; i < height; i++) {
+            BlockPos pos = feet.above(i);
+            BlockPos wallPos = pos.relative(dir);
+            BlockState current = level.getBlockState(pos);
+            if (current.is(Blocks.LADDER)) {
+                continue;
+            }
+            if (!current.canBeReplaced() || !level.getBlockState(wallPos).isFaceSturdy(level, wallPos, dir.getOpposite())) {
+                break;
+            }
+            level.setBlockAndUpdate(pos, ladder);
+            placed++;
+        }
+        if (placed > 0) {
+            buildEffects(feet);
+            return true;
+        }
+        return false;
+    }
+
+    private boolean buildBridge(BlockPos feet, Direction dir) {
+        Level level = level();
+        BlockPos front = feet.relative(dir);
+        BlockPos below = front.below();
+        if (!level.getBlockState(front).isAir() || !level.getBlockState(below).canBeReplaced()) {
+            return false;
+        }
+        level.setBlockAndUpdate(below, Blocks.OAK_PLANKS.defaultBlockState());
+        buildEffects(below);
+        return true;
+    }
+
+    private void buildEffects(BlockPos pos) {
+        swing(InteractionHand.MAIN_HAND);
+        level().playSound(null, pos, SoundEvents.WOOD_PLACE, SoundSource.HOSTILE, 1.0F, 0.9F);
+        buildCooldown = 40;
     }
 
     @Override
-    public void addAdditionalSaveData(CompoundTag tag) {
-        super.addAdditionalSaveData(tag);
-        link.save(tag);
+    protected void dropCustomDeathLoot(DamageSource source, int looting, boolean recentlyHit) {
+        super.dropCustomDeathLoot(source, looting, recentlyHit);
+        if (random.nextBoolean()) {
+            spawnAtLocation(Items.LEATHER);
+        } else {
+            spawnAtLocation(isOnFire() ? Items.COOKED_PORKCHOP : Items.PORKCHOP);
+        }
     }
 
     @Override
-    public void readAdditionalSaveData(CompoundTag tag) {
-        super.readAdditionalSaveData(tag);
-        link.load(tag);
+    protected SoundEvent getAmbientSound() {
+        return SoundEvents.ZOMBIFIED_PIGLIN_AMBIENT;
+    }
+
+    @Override
+    protected SoundEvent getHurtSound(DamageSource source) {
+        return SoundEvents.ZOMBIFIED_PIGLIN_HURT;
+    }
+
+    @Override
+    protected SoundEvent getDeathSound() {
+        return SoundEvents.ZOMBIFIED_PIGLIN_DEATH;
     }
 }

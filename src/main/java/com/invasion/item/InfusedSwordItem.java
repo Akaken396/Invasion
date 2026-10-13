@@ -1,17 +1,18 @@
 package com.invasion.item;
 
 import net.minecraft.ChatFormatting;
+import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.network.chat.Component;
+import net.minecraft.server.level.ServerLevel;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
-import net.minecraft.util.Mth;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResultHolder;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.SwordItem;
-import net.minecraft.world.item.Tier;
+import net.minecraft.world.item.Tiers;
 import net.minecraft.world.item.TooltipFlag;
 import net.minecraft.world.level.Level;
 import org.jetbrains.annotations.Nullable;
@@ -19,48 +20,64 @@ import org.jetbrains.annotations.Nullable;
 import java.util.List;
 
 /**
- * Charges up whenever it hits something. Once fully charged, right click to
- * release the stored energy and heal yourself.
+ * Diamond-strength sword whose "durability" bar is really a charge meter, as in the
+ * original: every hit charges it, and when it is full right click heals 3 hearts
+ * (or restores hunger while sneaking) and empties it again. It never breaks.
  */
 public class InfusedSwordItem extends SwordItem {
-    public static final int MAX_CHARGE = 20;
-    private static final String TAG_CHARGE = "InfusedCharge";
+    public static final int MAX_CHARGE = 40;
 
-    public InfusedSwordItem(Tier tier, int attackDamage, float attackSpeed, Properties properties) {
-        super(tier, attackDamage, attackSpeed, properties);
+    public InfusedSwordItem(Properties properties) {
+        super(Tiers.DIAMOND, 3, -2.4F, properties.durability(MAX_CHARGE));
     }
 
     public static int getCharge(ItemStack stack) {
-        return stack.hasTag() ? stack.getTag().getInt(TAG_CHARGE) : 0;
-    }
-
-    public static void setCharge(ItemStack stack, int charge) {
-        stack.getOrCreateTag().putInt(TAG_CHARGE, Mth.clamp(charge, 0, MAX_CHARGE));
+        return stack.getMaxDamage() - stack.getDamageValue();
     }
 
     @Override
     public boolean hurtEnemy(ItemStack stack, LivingEntity target, LivingEntity attacker) {
-        setCharge(stack, getCharge(stack) + 1);
-        return super.hurtEnemy(stack, target, attacker);
+        if (stack.getDamageValue() > 0) {
+            stack.setDamageValue(stack.getDamageValue() - 1);
+        }
+        return true;
+    }
+
+    @Override
+    public boolean isRepairable(ItemStack stack) {
+        return false;
+    }
+
+    @Override
+    public boolean isEnchantable(ItemStack stack) {
+        return true;
     }
 
     @Override
     public InteractionResultHolder<ItemStack> use(Level level, Player player, InteractionHand hand) {
         ItemStack stack = player.getItemInHand(hand);
-        if (getCharge(stack) >= MAX_CHARGE && player.getHealth() < player.getMaxHealth()) {
-            if (!level.isClientSide) {
-                player.heal(12.0F);
-                setCharge(stack, 0);
-                level.playSound(null, player.blockPosition(), SoundEvents.PLAYER_LEVELUP, SoundSource.PLAYERS, 0.6F, 1.5F);
-            }
-            return InteractionResultHolder.sidedSuccess(stack, level.isClientSide);
+        if (stack.getDamageValue() != 0) {
+            return InteractionResultHolder.pass(stack);
         }
-        return InteractionResultHolder.pass(stack);
+        if (!level.isClientSide) {
+            if (player.isShiftKeyDown()) {
+                player.getFoodData().eat(6, 0.5F);
+                level.playSound(null, player.blockPosition(), SoundEvents.PLAYER_BURP, SoundSource.PLAYERS, 0.5F,
+                        level.random.nextFloat() * 0.1F + 0.9F);
+            } else {
+                player.heal(6.0F);
+                if (level instanceof ServerLevel serverLevel) {
+                    serverLevel.sendParticles(ParticleTypes.HEART, player.getX(), player.getY() + 1.0D, player.getZ(), 6, 1.0D, 0.5D, 1.0D, 0.0D);
+                }
+            }
+            stack.setDamageValue(stack.getMaxDamage());
+        }
+        return InteractionResultHolder.sidedSuccess(stack, level.isClientSide);
     }
 
     @Override
     public boolean isFoil(ItemStack stack) {
-        return getCharge(stack) >= MAX_CHARGE;
+        return stack.getDamageValue() == 0;
     }
 
     @Override

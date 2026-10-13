@@ -2,15 +2,15 @@
   "type": "minecraft:crafting_shaped",
   "category": "misc",
   "pattern": [
-    " L ",
-    "RDR",
-    " L "
+    " X ",
+    "#D#",
+    " X "
   ],
   "key": {
-    "L": {
+    "X": {
       "item": "minecraft:lapis_lazuli"
     },
-    "R": {
+    "#": {
       "item": "minecraft:redstone"
     },
     "D": {

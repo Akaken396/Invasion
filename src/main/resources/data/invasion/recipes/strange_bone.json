@@ -1,0 +1,19 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "pattern": [
+    "X#X"
+  ],
+  "key": {
+    "X": {
+      "item": "invasion:rift_flux"
+    },
+    "#": {
+      "item": "minecraft:bone"
+    }
+  },
+  "result": {
+    "item": "invasion:strange_bone",
+    "count": 1
+  }
+}

@@ -4,21 +4,24 @@ import com.invasion.Config;
 import com.invasion.block.NexusBlock;
 import com.invasion.entity.InvasionMob;
 import com.invasion.menu.NexusMenu;
-import com.invasion.nexus.WaveGenerator;
+import com.invasion.nexus.WaveSpawner;
+import com.invasion.nexus.wave.Wave;
+import com.invasion.nexus.wave.WaveBuilder;
 import com.invasion.registry.ModBlockEntities;
 import com.invasion.registry.ModItems;
+import com.invasion.registry.ModSounds;
 import net.minecraft.ChatFormatting;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
-import net.minecraft.nbt.StringTag;
+import net.minecraft.nbt.NbtUtils;
 import net.minecraft.nbt.Tag;
 import net.minecraft.network.chat.Component;
-import net.minecraft.network.chat.MutableComponent;
 import net.minecraft.server.level.ServerBossEvent;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.sounds.SoundEvent;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
 import net.minecraft.util.Mth;
@@ -26,8 +29,6 @@ import net.minecraft.world.BossEvent;
 import net.minecraft.world.Containers;
 import net.minecraft.world.Difficulty;
 import net.minecraft.world.MenuProvider;
-import net.minecraft.world.entity.Entity;
-import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.Mob;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.entity.player.Player;
@@ -38,65 +39,72 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
-import net.minecraft.world.level.levelgen.Heightmap;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
 import net.minecraftforge.items.ItemStackHandler;
-import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
-import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.UUID;
 
 /**
- * Holds all state of a Nexus and drives the invasion: waves, spawning,
- * hit points, rewards and the boss bar shown to nearby players.
+ * The Nexus (port of the original TileEntityNexus).
+ * <p>
+ * Modes: 0 idle, 1 wave invasion, 2 continuous mode (waiting for the next night attack),
+ * 3 wave invasion started while in continuous mode, 4 about to enter continuous mode.
+ * Putting a catalyst in the input slot charges the activation bar for 20 seconds,
+ * then the invasion starts. Hit points: 100.
  */
 public class NexusBlockEntity extends BlockEntity implements MenuProvider {
-    public static final int RADIUS_STEP = 8;
-    public static final int MIN_RADIUS = 16;
-    public static final int MAX_RADIUS = 128;
     public static final int SLOT_INPUT = 0;
     public static final int SLOT_OUTPUT = 1;
-    public static final int DATA_COUNT = 12;
-
-    private static final int START_DELAY_TICKS = 200;
-    private static final int STRAGGLER_TICKS = 20 * 60 * 4;
-
-    public enum Mode { WAVE, CONTINUOUS }
-
-    public enum Phase { IDLE, RESTING, SPAWNING, FIGHTING }
+    public static final int DATA_COUNT = 11;
+    public static final int MAX_HP = 100;
+    public static final int ACTIVATION_TIME = 400;
+    public static final int COOK_TIME = 1200;
+    public static final int GENERATION_PER_FLUX = 3000;
+    private static final int TICK_MILLIS = 50;
+    private static final long BIND_EXPIRE_TICKS = 6000L;
 
     private final ItemStackHandler items = new ItemStackHandler(2) {
         @Override
         protected void onContentsChanged(int slot) {
             setChanged();
         }
-
-        @Override
-        public boolean isItemValid(int slot, @NotNull ItemStack stack) {
-            return slot != SLOT_INPUT || isInputItem(stack);
-        }
     };
+    private final WaveSpawner spawner = new WaveSpawner(this);
+    private final Map<UUID, Long> boundPlayers = new HashMap<>();
 
-    private final List<EntityType<?>> spawnQueue = new ArrayList<>();
-
-    private boolean active;
-    private Mode mode = Mode.WAVE;
-    private Phase phase = Phase.IDLE;
-    private int wave = 1;
-    private int nexusLevel;
-    private int hp;
-    private int kills;
-    private int generation;
+    private int mode;
+    private int activationTimer;
+    private int currentWave;
     private int spawnRadius = -1;
-    private int timer;
-    private int waveTicks;
-
-    private int ticks;
-    private int aliveCount;
-    private int spawnCooldown;
-    private int lastAttackWarning = -10000;
+    private int nexusLevel = 1;
+    private int nexusKills;
+    private int generation;
+    private int cookTime;
+    private int hp = MAX_HP;
+    private int lastHp = MAX_HP;
+    private int powerLevel;
+    private int lastPowerLevel;
+    private int powerLevelTimer;
+    private int mobsLeftInWave;
+    private int lastMobsLeftInWave;
+    private int mobsToKillInWave;
+    private long nextAttackTime;
+    private long lastWorldTime;
+    private int zapTimer;
+    private int tickCount;
+    private long waveDelayTimer = -1L;
+    private long waveDelay;
+    private boolean continuousAttack;
+    private boolean activated;
+    private boolean resumedFromNBT;
+    private long spawnerElapsedRestore;
+    private List<Mob> mobList = List.of();
     @Nullable
     private ServerBossEvent bossBar;
 
@@ -104,18 +112,17 @@ public class NexusBlockEntity extends BlockEntity implements MenuProvider {
         @Override
         public int get(int index) {
             return switch (index) {
-                case 0 -> active ? 1 : 0;
-                case 1 -> mode.ordinal();
+                case 0 -> mode;
+                case 1 -> activationTimer;
                 case 2 -> nexusLevel;
-                case 3 -> hp;
-                case 4 -> getMaxHp();
-                case 5 -> Math.min(kills, Short.MAX_VALUE);
-                case 6 -> wave;
-                case 7 -> getRemainingMobs();
-                case 8 -> generation;
-                case 9 -> getSpawnRadius();
-                case 10 -> Mth.ceil(timer / 20.0F);
-                case 11 -> phase.ordinal();
+                case 3 -> Math.min(nexusKills, Short.MAX_VALUE);
+                case 4 -> getSpawnRadius();
+                case 5 -> currentWave;
+                case 6 -> Math.min(powerLevel, Short.MAX_VALUE);
+                case 7 -> generation;
+                case 8 -> cookTime;
+                case 9 -> hp;
+                case 10 -> activated ? 1 : 0;
                 default -> 0;
             };
         }
@@ -137,25 +144,25 @@ public class NexusBlockEntity extends BlockEntity implements MenuProvider {
     // ------------------------------------------------------------------
     // Accessors
 
-    public static boolean isInputItem(ItemStack stack) {
-        Item item = stack.getItem();
-        return item == ModItems.NEXUS_CATALYST.get()
-                || item == ModItems.STRONG_CATALYST.get()
-                || item == ModItems.STABLE_ENERGY_FIELD.get()
-                || item == ModItems.DAMPING_AGENT.get()
-                || item == ModItems.STRONG_DAMPING_AGENT.get();
-    }
-
     public ItemStackHandler getItems() {
         return items;
     }
 
+    /** True while an invasion or continuous mode is running. */
     public boolean isActive() {
-        return active;
+        return mode == 1 || mode == 2 || mode == 3;
     }
 
-    public int getMaxHp() {
-        return Config.NEXUS_MAX_HP.get();
+    public int getMode() {
+        return mode;
+    }
+
+    public int getCurrentWave() {
+        return currentWave;
+    }
+
+    public int getHp() {
+        return hp;
     }
 
     public int getSpawnRadius() {
@@ -165,32 +172,25 @@ public class NexusBlockEntity extends BlockEntity implements MenuProvider {
         return spawnRadius;
     }
 
-    public int adjustSpawnRadius(int delta) {
-        spawnRadius = Mth.clamp(getSpawnRadius() + delta, MIN_RADIUS, MAX_RADIUS);
-        setChanged();
-        return spawnRadius;
-    }
-
-    public int getRemainingMobs() {
-        return spawnQueue.size() + aliveCount;
+    public boolean setSpawnRadius(int radius) {
+        if (!spawner.isActive() && radius > 8) {
+            spawnRadius = radius;
+            spawner.invalidateSpawnPoints();
+            setChanged();
+            return true;
+        }
+        return false;
     }
 
     public Vec3 getCenter() {
         return Vec3.atCenterOf(worldPosition);
     }
 
-    public Component describe() {
-        MutableComponent text = Component.translatable("message.invasion.probe.nexus",
-                worldPosition.getX(), worldPosition.getY(), worldPosition.getZ()).withStyle(ChatFormatting.LIGHT_PURPLE);
-        text.append("\n").append(Component.translatable(active ? "gui.invasion.nexus.active" : "gui.invasion.nexus.inactive"));
-        text.append("\n").append(Component.translatable("gui.invasion.nexus.level", nexusLevel));
-        text.append("\n").append(Component.translatable("gui.invasion.nexus.hp", hp, getMaxHp()));
-        text.append("\n").append(Component.translatable("gui.invasion.nexus.radius", getSpawnRadius()));
-        if (active) {
-            text.append("\n").append(Component.translatable("gui.invasion.nexus.wave", wave));
-            text.append("\n").append(Component.translatable("gui.invasion.nexus.remaining", getRemainingMobs()));
-        }
-        return text;
+    private AABB boundingBoxToRadius() {
+        int r = getSpawnRadius() + 10;
+        int v = getSpawnRadius() + 40;
+        return new AABB(worldPosition.getX() - r, worldPosition.getY() - v, worldPosition.getZ() - r,
+                worldPosition.getX() + r, worldPosition.getY() + v, worldPosition.getZ() + r);
     }
 
     // ------------------------------------------------------------------
@@ -203,287 +203,541 @@ public class NexusBlockEntity extends BlockEntity implements MenuProvider {
     }
 
     private void tick(ServerLevel level) {
-        ticks++;
-        if (ticks % 10 == 0) {
-            handleInput(level);
-        }
-        if (!active) {
-            return;
-        }
-
-        switch (phase) {
-            case RESTING -> {
-                if (timer > 0) {
-                    timer--;
-                }
-                if (ticks % 40 == 0 && hp < getMaxHp()) {
-                    hp++;
-                }
-                if (timer <= 0) {
-                    startWave(level);
-                }
+        updateStatus(level);
+        if (mode == 1 || mode == 2 || mode == 3) {
+            if (resumedFromNBT) {
+                resume(level);
+                resumedFromNBT = false;
             }
-            case SPAWNING -> {
-                waveTicks++;
-                spawnTick(level);
+            if (++tickCount >= 60) {
+                tickCount = 0;
+                bindPlayers(level);
+                mobList = level.getEntitiesOfClass(Mob.class, boundingBoxToRadius(),
+                        mob -> mob.isAlive() && mob instanceof InvasionMob invader && invader.getNexusLink().isLinkedTo(worldPosition));
             }
-            case FIGHTING -> waveTicks++;
-            default -> {
+            if (mode == 1 || mode == 3) {
+                doInvasion(level);
+            } else {
+                doContinuous(level);
             }
         }
-
-        if (mode == Mode.CONTINUOUS && ticks % 1200 == 0) {
-            addGeneration(1);
-        }
-
-        if (ticks % 20 == 0) {
-            aliveCount = countAlive(level);
-            if (phase == Phase.SPAWNING && spawnQueue.isEmpty()) {
-                phase = Phase.FIGHTING;
-            }
-            if (phase == Phase.FIGHTING) {
-                if (aliveCount == 0) {
-                    waveCleared(level);
-                } else if (waveTicks > STRAGGLER_TICKS) {
-                    // Help players find the last invaders of a long wave.
-                    forEachLinkedMob(level, mob -> mob.setGlowingTag(true));
-                }
-            }
+        if (level.getGameTime() % 20 == 0) {
             updateBossBar(level);
-            setChanged();
         }
     }
 
-    private void handleInput(ServerLevel level) {
-        ItemStack stack = items.getStackInSlot(SLOT_INPUT);
-        if (stack.isEmpty()) {
+    private void updateStatus(ServerLevel level) {
+        ItemStack input = items.getStackInSlot(SLOT_INPUT);
+        if (!input.isEmpty()) {
+            if (input.is(ModItems.EMPTY_TRAP.get())) {
+                if (cookTime < COOK_TIME) {
+                    cookTime += mode == 0 ? 1 : 9;
+                }
+                if (cookTime >= COOK_TIME && cookOutput(new ItemStack(ModItems.RIFT_TRAP.get()))) {
+                    cookTime = 0;
+                }
+            } else if (input.is(ModItems.RIFT_FLUX.get())) {
+                if (cookTime < COOK_TIME && nexusLevel >= 10) {
+                    cookTime += 5;
+                }
+                if (cookTime >= COOK_TIME && items.getStackInSlot(SLOT_OUTPUT).isEmpty()
+                        && cookOutput(new ItemStack(ModItems.STRONG_CATALYST.get()))) {
+                    cookTime = 0;
+                }
+            } else {
+                cookTime = 0;
+            }
+        } else {
+            cookTime = 0;
+        }
+
+        if (activationTimer >= ACTIVATION_TIME) {
+            activationTimer = 0;
+            Item item = input.getItem();
+            if (!input.isEmpty()) {
+                if (item == ModItems.NEXUS_CATALYST.get()) {
+                    items.extractItem(SLOT_INPUT, 1, false);
+                    activated = true;
+                    startInvasion(level, 1);
+                } else if (item == ModItems.STRONG_CATALYST.get()) {
+                    items.extractItem(SLOT_INPUT, 1, false);
+                    activated = true;
+                    startInvasion(level, 10);
+                } else if (item == ModItems.STABLE_NEXUS_CATALYST.get()) {
+                    items.extractItem(SLOT_INPUT, 1, false);
+                    activated = true;
+                    startContinuousPlay(level);
+                }
+            }
+        } else if (mode == 0 || mode == 4) {
+            if (isInvasionCatalyst(input)) {
+                if (canActivate(level)) {
+                    activationTimer++;
+                }
+                mode = 0;
+            } else if (input.is(ModItems.STABLE_NEXUS_CATALYST.get())) {
+                if (canActivate(level)) {
+                    activationTimer++;
+                }
+                mode = 4;
+            } else {
+                activationTimer = 0;
+            }
+        } else if (mode == 2) {
+            if (isInvasionCatalyst(input)) {
+                activationTimer++;
+            } else {
+                activationTimer = 0;
+            }
+        }
+    }
+
+    private static boolean isInvasionCatalyst(ItemStack stack) {
+        return stack.is(ModItems.NEXUS_CATALYST.get()) || stack.is(ModItems.STRONG_CATALYST.get());
+    }
+
+    private boolean canActivate(ServerLevel level) {
+        if (level.getDifficulty() == Difficulty.PEACEFUL) {
+            if (level.getGameTime() % 100 == 0) {
+                messageNearbyPlayers(level, Component.translatable("message.invasion.peaceful").withStyle(ChatFormatting.RED));
+            }
+            return false;
+        }
+        return true;
+    }
+
+    private boolean cookOutput(ItemStack result) {
+        ItemStack output = items.getStackInSlot(SLOT_OUTPUT);
+        if (output.isEmpty() || (ItemStack.isSameItemSameTags(output, result) && output.getCount() < output.getMaxStackSize())) {
+            items.extractItem(SLOT_INPUT, 1, false);
+            if (output.isEmpty()) {
+                items.setStackInSlot(SLOT_OUTPUT, result);
+            } else {
+                output.grow(1);
+                setChanged();
+            }
+            return true;
+        }
+        return false;
+    }
+
+    // ------------------------------------------------------------------
+    // Invasion
+
+    private void startInvasion(ServerLevel level, int startWave) {
+        if (mode == 2 && continuousAttack) {
+            messageBoundPlayers(Component.translatable("message.invasion.already_under_attack"));
             return;
         }
-        Item item = stack.getItem();
-        if (!active) {
-            Mode newMode;
-            int startWave;
-            if (item == ModItems.NEXUS_CATALYST.get()) {
-                newMode = Mode.WAVE;
-                startWave = 1;
-            } else if (item == ModItems.STRONG_CATALYST.get()) {
-                newMode = Mode.WAVE;
-                startWave = 10;
-            } else if (item == ModItems.STABLE_ENERGY_FIELD.get()) {
-                newMode = Mode.CONTINUOUS;
-                startWave = 1;
+        if (mode != 0 && mode != 2) {
+            return;
+        }
+        currentWave = startWave;
+        spawner.beginNextWave(level, currentWave);
+        setMode(mode == 0 ? 1 : 3);
+        bindPlayers(level);
+        hp = MAX_HP;
+        lastHp = MAX_HP;
+        waveDelayTimer = -1L;
+        nexusLevel = Math.max(nexusLevel, currentWave);
+        messageBoundPlayers(Component.translatable("message.invasion.first_wave").withStyle(ChatFormatting.RED));
+        playSoundForBoundPlayers(level, ModSounds.RUMBLE.get());
+    }
+
+    private void startContinuousPlay(ServerLevel level) {
+        if (mode != 4) {
+            messageNearbyPlayers(level, Component.translatable("message.invasion.couldnt_activate"));
+            return;
+        }
+        setMode(2);
+        hp = MAX_HP;
+        lastHp = MAX_HP;
+        lastPowerLevel = powerLevel;
+        lastWorldTime = level.getDayTime();
+        nextAttackTime = lastWorldTime / 24000L * 24000L + 14000L;
+        bindPlayers(level);
+        long timeOfDay = lastWorldTime % 24000L;
+        messageBoundPlayers(Component.translatable(timeOfDay > 12000L && timeOfDay < 16000L
+                ? "message.invasion.night_looms" : "message.invasion.continuous_stable").withStyle(ChatFormatting.LIGHT_PURPLE));
+    }
+
+    private void doInvasion(ServerLevel level) {
+        if (!spawner.isActive()) {
+            return;
+        }
+        if (hp <= 0) {
+            theEnd(level);
+            return;
+        }
+        generateFlux(1);
+        if (spawner.isWaveComplete()) {
+            if (waveDelayTimer == -1L) {
+                messageBoundPlayers(Component.translatable("message.invasion.wave_almost_complete", currentWave).withStyle(ChatFormatting.GREEN));
+                playSoundForBoundPlayers(level, ModSounds.CHIME.get());
+                waveDelayTimer = 0L;
+                waveDelay = spawner.getWaveRestTime();
             } else {
-                return;
-            }
-            if (level.getDifficulty() == Difficulty.PEACEFUL) {
-                if (ticks % 60 == 0) {
-                    broadcast(level, Component.translatable("message.invasion.peaceful").withStyle(ChatFormatting.RED), true);
+                waveDelayTimer += TICK_MILLIS;
+                if (waveDelayTimer > waveDelay) {
+                    currentWave++;
+                    messageBoundPlayers(Component.translatable("message.invasion.wave_begin", currentWave).withStyle(ChatFormatting.RED));
+                    spawner.beginNextWave(level, currentWave);
+                    waveDelayTimer = -1L;
+                    playSoundForBoundPlayers(level, ModSounds.RUMBLE.get());
+                    if (currentWave > nexusLevel) {
+                        nexusLevel = currentWave;
+                    }
                 }
-                return;
             }
-            items.extractItem(SLOT_INPUT, 1, false);
-            start(level, newMode, startWave);
-        } else if (item == ModItems.DAMPING_AGENT.get()) {
-            if (wave > 1) {
-                items.extractItem(SLOT_INPUT, 1, false);
-                wave--;
-                broadcast(level, Component.translatable("message.invasion.damped", wave).withStyle(ChatFormatting.AQUA), false);
-            }
-        } else if (item == ModItems.STRONG_DAMPING_AGENT.get()) {
-            items.extractItem(SLOT_INPUT, 1, false);
-            broadcast(level, Component.translatable("message.invasion.stopped").withStyle(ChatFormatting.AQUA), false);
+        } else if (!spawner.spawn(level, TICK_MILLIS)) {
+            messageBoundPlayers(Component.translatable("message.invasion.no_spawn_points").withStyle(ChatFormatting.RED));
             stop(level);
         }
     }
 
-    private void start(ServerLevel level, Mode newMode, int startWave) {
-        active = true;
-        mode = newMode;
-        wave = startWave;
-        hp = getMaxHp();
-        kills = 0;
-        phase = Phase.RESTING;
-        timer = START_DELAY_TICKS;
-        spawnQueue.clear();
-        setActiveState(level, true);
-        level.playSound(null, worldPosition, SoundEvents.BEACON_ACTIVATE, SoundSource.BLOCKS, 1.5F, 0.6F);
-        broadcast(level, Component.translatable(mode == Mode.WAVE ? "message.invasion.start.wave" : "message.invasion.start.continuous",
-                START_DELAY_TICKS / 20).withStyle(ChatFormatting.LIGHT_PURPLE), false);
-        setChanged();
+    private void doContinuous(ServerLevel level) {
+        ItemStack input = items.getStackInSlot(SLOT_INPUT);
+        powerLevelTimer += TICK_MILLIS;
+        if (powerLevelTimer > 2200) {
+            powerLevelTimer -= 2200;
+            generateFlux(5 + (int) (5.0F * powerLevel / 1550.0F));
+            if (!input.is(ModItems.DAMPING_AGENT.get())) {
+                powerLevel++;
+            }
+        }
+        if (input.is(ModItems.STRONG_DAMPING_AGENT.get()) && powerLevel >= 0 && !continuousAttack) {
+            powerLevel--;
+            if (powerLevel < 0) {
+                powerLevel = 0;
+                stop(level);
+                return;
+            }
+        }
+        if (!continuousAttack) {
+            long currentTime = level.getDayTime();
+            long timeOfDay = lastWorldTime % 24000L;
+            if (timeOfDay < 12000L && currentTime % 24000L >= 12000L && currentTime + 12000L > nextAttackTime) {
+                messageBoundPlayers(Component.translatable("message.invasion.night_looms").withStyle(ChatFormatting.LIGHT_PURPLE));
+            }
+            if (lastWorldTime > currentTime) {
+                nextAttackTime -= lastWorldTime - currentTime;
+            }
+            lastWorldTime = currentTime;
+            if (lastWorldTime >= nextAttackTime) {
+                float difficulty = 1.0F + powerLevel / 4500;
+                Wave wave = WaveBuilder.generateWave(difficulty, difficulty, 240);
+                mobsToKillInWave = (int) (wave.getTotalMobAmount() * 0.8F);
+                mobsLeftInWave = mobsToKillInWave;
+                lastMobsLeftInWave = mobsToKillInWave;
+                spawner.beginNextWave(level, wave);
+                continuousAttack = true;
+                nextAttackTime = currentTime / 24000L * 24000L + 14000L + randomDays(level) * 24000L;
+                hp = MAX_HP;
+                lastHp = MAX_HP;
+                zapTimer = 0;
+                waveDelayTimer = -1L;
+                messageBoundPlayers(Component.translatable("message.invasion.destabilising").withStyle(ChatFormatting.RED));
+                playSoundForBoundPlayers(level, ModSounds.RUMBLE.get());
+            }
+        } else if (hp <= 0) {
+            continuousAttack = false;
+            continuousNexusHurt(level);
+        } else if (spawner.isWaveComplete()) {
+            if (waveDelayTimer == -1L) {
+                waveDelayTimer = 0L;
+                waveDelay = spawner.getWaveRestTime();
+            } else {
+                waveDelayTimer += TICK_MILLIS;
+                if (waveDelayTimer > waveDelay && zapTimer < -200) {
+                    waveDelayTimer = -1L;
+                    continuousAttack = false;
+                    spawner.stop();
+                    hp = MAX_HP;
+                    lastHp = MAX_HP;
+                    lastPowerLevel = powerLevel;
+                }
+            }
+            zapTimer--;
+            if (mobsLeftInWave <= 0 && zapTimer <= 0 && zapEnemy(level)) {
+                zapTimer = 23;
+            }
+        } else if (!spawner.spawn(level, TICK_MILLIS)) {
+            messageBoundPlayers(Component.translatable("message.invasion.no_spawn_points").withStyle(ChatFormatting.RED));
+            stop(level);
+        }
     }
 
-    private void startWave(ServerLevel level) {
-        spawnQueue.clear();
-        spawnQueue.addAll(WaveGenerator.generate(wave, level.random));
-        phase = Phase.SPAWNING;
-        waveTicks = 0;
-        spawnCooldown = 0;
-        level.playSound(null, worldPosition, SoundEvents.WITHER_SPAWN, SoundSource.HOSTILE, 0.5F, 0.8F);
-        broadcast(level, Component.translatable("message.invasion.wave_start", wave, spawnQueue.size())
-                .withStyle(ChatFormatting.RED), false);
+    private int randomDays(ServerLevel level) {
+        int min = Config.MIN_CONTINUOUS_DAYS.get();
+        int max = Math.max(min, Config.MAX_CONTINUOUS_DAYS.get());
+        return min + level.random.nextInt(1 + max - min);
     }
 
-    private void spawnTick(ServerLevel level) {
-        if (--spawnCooldown > 0) {
+    private void generateFlux(int increment) {
+        generation += increment;
+        if (generation >= GENERATION_PER_FLUX) {
+            ItemStack output = items.getStackInSlot(SLOT_OUTPUT);
+            if (output.isEmpty()) {
+                items.setStackInSlot(SLOT_OUTPUT, new ItemStack(ModItems.RIFT_FLUX.get()));
+                generation -= GENERATION_PER_FLUX;
+            } else if (output.is(ModItems.RIFT_FLUX.get()) && output.getCount() < output.getMaxStackSize()) {
+                output.grow(1);
+                generation -= GENERATION_PER_FLUX;
+                setChanged();
+            }
+        }
+    }
+
+    /** Called by invaders (and boulders) hitting the Nexus. */
+    public void damageNexus(int damage) {
+        if (!(level instanceof ServerLevel serverLevel) || !isActive()) {
             return;
         }
-        if (spawnQueue.isEmpty()) {
-            phase = Phase.FIGHTING;
-            return;
-        }
-        if (aliveCount >= Config.MAX_ALIVE_MOBS.get()) {
-            spawnCooldown = 20;
-            return;
-        }
-        EntityType<?> type = spawnQueue.get(0);
-        if (spawnMob(level, type)) {
-            spawnQueue.remove(0);
-            aliveCount++;
-            spawnCooldown = Math.max(4, 30 - wave) + level.random.nextInt(10);
-        } else {
-            spawnCooldown = 20;
-        }
-    }
-
-    private boolean spawnMob(ServerLevel level, EntityType<?> type) {
-        BlockPos spawnPos = findSpawnPos(level);
-        if (spawnPos == null) {
-            return false;
-        }
-        Entity entity = type.create(level);
-        if (!(entity instanceof Mob mob) || !(entity instanceof InvasionMob invader)) {
-            if (entity != null) {
-                entity.discard();
-            }
-            // Unknown entry: drop it from the queue instead of retrying forever.
-            return true;
-        }
-        mob.moveTo(spawnPos.getX() + 0.5D, spawnPos.getY(), spawnPos.getZ() + 0.5D, level.random.nextFloat() * 360.0F, 0.0F);
-        invader.getNexusLink().setNexus(worldPosition);
-        mob.setPersistenceRequired();
-        invader.onInvasionSpawn(wave);
-        level.addFreshEntity(mob);
-        level.sendParticles(ParticleTypes.PORTAL, mob.getX(), mob.getY() + 1.0D, mob.getZ(), 30, 0.4D, 0.8D, 0.4D, 0.4D);
-        return true;
-    }
-
-    @Nullable
-    private BlockPos findSpawnPos(ServerLevel level) {
-        int radius = getSpawnRadius();
-        for (int attempt = 0; attempt < 16; attempt++) {
-            double angle = level.random.nextDouble() * Math.PI * 2.0D;
-            double r = radius + level.random.nextInt(7) - 3;
-            int x = worldPosition.getX() + Mth.floor(Math.cos(angle) * r);
-            int z = worldPosition.getZ() + Mth.floor(Math.sin(angle) * r);
-            BlockPos column = new BlockPos(x, worldPosition.getY(), z);
-            if (!level.isLoaded(column) || !level.getWorldBorder().isWithinBounds(column)) {
-                continue;
-            }
-            int y = level.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, x, z);
-            BlockPos pos = new BlockPos(x, y, z);
-            BlockState below = level.getBlockState(pos.below());
-            if (!below.getFluidState().isEmpty() || below.isAir()) {
-                continue;
-            }
-            if (level.isEmptyBlock(pos) && level.isEmptyBlock(pos.above()) && level.isEmptyBlock(pos.above(2))) {
-                return pos;
-            }
-        }
-        return null;
-    }
-
-    private void waveCleared(ServerLevel level) {
-        nexusLevel = Math.max(nexusLevel, wave);
-        if (mode == Mode.WAVE) {
-            output(level, new ItemStack(ModItems.RIFT_FLUX.get(), 1 + wave / 2));
-            if (wave % 5 == 0) {
-                output(level, new ItemStack(ModItems.SMALL_RIFT.get()));
-            }
-        } else {
-            addGeneration(wave);
-        }
-        level.playSound(null, worldPosition, SoundEvents.PLAYER_LEVELUP, SoundSource.BLOCKS, 1.0F, 0.8F);
-        broadcast(level, Component.translatable("message.invasion.wave_cleared", wave).withStyle(ChatFormatting.GREEN), false);
-        forEachLinkedMob(level, mob -> mob.setGlowingTag(false));
-        wave++;
-        phase = Phase.RESTING;
-        timer = (mode == Mode.WAVE ? Config.WAVE_REST_SECONDS.get() : Config.CONTINUOUS_INTERVAL_SECONDS.get()) * 20;
-        setChanged();
-    }
-
-    // ------------------------------------------------------------------
-    // Combat
-
-    /** Called by invaders that reached the Nexus. */
-    public void damageNexus(int amount) {
-        if (!active || !(level instanceof ServerLevel serverLevel) || amount <= 0) {
-            return;
-        }
-        hp -= amount;
+        hp -= damage;
         Vec3 c = getCenter();
-        serverLevel.sendParticles(ParticleTypes.DAMAGE_INDICATOR, c.x, c.y + 0.6D, c.z, 3, 0.3D, 0.3D, 0.3D, 0.1D);
-        serverLevel.playSound(null, worldPosition, SoundEvents.AMETHYST_BLOCK_HIT, SoundSource.BLOCKS, 1.5F, 0.5F);
-        if (ticks - lastAttackWarning > 200) {
-            lastAttackWarning = ticks;
-            broadcast(serverLevel, Component.translatable("message.invasion.under_attack", Math.max(hp, 0), getMaxHp())
-                    .withStyle(ChatFormatting.GOLD), true);
-        }
+        serverLevel.sendParticles(ParticleTypes.DAMAGE_INDICATOR, c.x, c.y + 0.6D, c.z, 2, 0.3D, 0.3D, 0.3D, 0.1D);
         if (hp <= 0) {
             hp = 0;
-            fail(serverLevel);
+            if (mode == 1) {
+                theEnd(serverLevel);
+            }
+        }
+        while (hp + 5 <= lastHp) {
+            messageBoundPlayers(Component.translatable("message.invasion.nexus_hp", lastHp - 5).withStyle(ChatFormatting.GOLD));
+            lastHp -= 5;
         }
         setChanged();
     }
 
-    /** Called when an invader linked to this Nexus dies. */
+    /** Called when an invader bound to this Nexus dies. */
     public void onMobKilled(Mob mob) {
-        if (!active) {
-            return;
+        nexusKills++;
+        mobsLeftInWave--;
+        if (mobsLeftInWave <= 0) {
+            if (lastMobsLeftInWave > 0) {
+                messageBoundPlayers(Component.translatable("message.invasion.rift_stable").withStyle(ChatFormatting.GREEN));
+                messageBoundPlayers(Component.translatable("message.invasion.unleashing"));
+                lastMobsLeftInWave = mobsLeftInWave;
+            }
+        } else {
+            while (mobsToKillInWave > 0 && mobsLeftInWave + mobsToKillInWave * 0.1F <= lastMobsLeftInWave) {
+                messageBoundPlayers(Component.translatable("message.invasion.rift_stabilised",
+                        100 - 100 * mobsLeftInWave / mobsToKillInWave));
+                lastMobsLeftInWave = (int) (lastMobsLeftInWave - mobsToKillInWave * 0.1F);
+            }
         }
-        kills++;
-        addGeneration(1);
         setChanged();
     }
 
-    private void addGeneration(int amount) {
-        generation += amount;
-        int needed = Config.KILLS_PER_RIFT_FLUX.get();
-        if (generation >= needed && level instanceof ServerLevel serverLevel) {
-            int count = generation / needed;
-            generation %= needed;
-            output(serverLevel, new ItemStack(ModItems.RIFT_FLUX.get(), count));
+    private void theEnd(ServerLevel level) {
+        messageBoundPlayers(Component.translatable("message.invasion.destroyed").withStyle(ChatFormatting.DARK_RED));
+        stop(level);
+        long now = level.getGameTime();
+        for (Map.Entry<UUID, Long> entry : boundPlayers.entrySet()) {
+            ServerPlayer player = level.getServer().getPlayerList().getPlayer(entry.getKey());
+            if (player == null || now - entry.getValue() >= BIND_EXPIRE_TICKS) {
+                continue;
+            }
+            level.playSound(null, player.blockPosition(), SoundEvents.GENERIC_EXPLODE, SoundSource.BLOCKS, 1.0F, 1.0F);
+            if (Config.DESTROYED_NEXUS_KILLS_PLAYERS.get()) {
+                player.hurt(level.damageSources().magic(), 500.0F);
+            }
         }
+        boundPlayers.clear();
+        killAllMobs(level);
     }
 
-    private void fail(ServerLevel level) {
-        broadcast(level, Component.translatable("message.invasion.destroyed", Math.max(0, wave - 1)).withStyle(ChatFormatting.DARK_RED), false);
-        Vec3 c = getCenter();
-        level.explode(null, c.x, c.y, c.z, 3.0F, Level.ExplosionInteraction.NONE);
-        stop(level);
+    private void continuousNexusHurt(ServerLevel level) {
+        messageBoundPlayers(Component.translatable("message.invasion.severely_damaged").withStyle(ChatFormatting.DARK_RED));
+        playSoundForBoundPlayers(level, SoundEvents.GENERIC_EXPLODE);
+        killAllMobs(level);
+        spawner.stop();
+        powerLevel = (int) (lastPowerLevel * 0.7F);
+        lastPowerLevel = powerLevel;
+        if (powerLevel < 0) {
+            powerLevel = 0;
+            stop(level);
+        }
     }
 
     private void stop(ServerLevel level) {
-        active = false;
-        phase = Phase.IDLE;
-        spawnQueue.clear();
-        aliveCount = 0;
-        timer = 0;
-        forEachLinkedMob(level, mob -> {
-            level.sendParticles(ParticleTypes.PORTAL, mob.getX(), mob.getY() + 1.0D, mob.getZ(), 20, 0.3D, 0.6D, 0.3D, 0.3D);
-            mob.discard();
-        });
-        if (bossBar != null) {
+        if (mode == 3) {
+            setMode(2);
+            nextAttackTime = level.getDayTime() / 24000L * 24000L + 14000L + randomDays(level) * 24000L;
+        } else {
+            setMode(0);
+        }
+        spawner.stop();
+        activationTimer = 0;
+        currentWave = 0;
+        activated = false;
+        if (mode == 0 && bossBar != null) {
             bossBar.removeAllPlayers();
         }
-        setActiveState(level, false);
         setChanged();
     }
 
-    /** Called when the Nexus block is removed from the world. */
+    /** Ends everything; used by the command and when the block is broken. */
+    public void emergencyStop() {
+        if (level instanceof ServerLevel serverLevel) {
+            continuousAttack = false;
+            if (mode == 3) {
+                mode = 2;
+            }
+            if (mode == 2) {
+                setMode(0);
+            }
+            stop(serverLevel);
+            killAllMobs(serverLevel);
+        }
+    }
+
+    public void debugStartInvasion(int startWave) {
+        if (level instanceof ServerLevel serverLevel) {
+            activated = true;
+            startInvasion(serverLevel, Math.max(1, startWave));
+        }
+    }
+
+    private void killAllMobs(ServerLevel level) {
+        for (Mob mob : level.getEntitiesOfClass(Mob.class, boundingBoxToRadius().inflate(10.0D, 64.0D, 10.0D),
+                mob -> mob instanceof InvasionMob invader && invader.getNexusLink().isLinkedTo(worldPosition))) {
+            mob.hurt(level.damageSources().magic(), 500.0F);
+        }
+    }
+
+    /** Continuous mode: when enough invaders are dead the Nexus zaps the rest, farthest first. */
+    private boolean zapEnemy(ServerLevel level) {
+        Mob target = mobList.stream().filter(Mob::isAlive)
+                .max(Comparator.comparingDouble(mob -> mob.distanceToSqr(getCenter()))).orElse(null);
+        if (target == null) {
+            return false;
+        }
+        mobList = mobList.stream().filter(mob -> mob != target).toList();
+        Vec3 from = getCenter();
+        Vec3 to = target.position().add(0.0D, target.getBbHeight() / 2.0D, 0.0D);
+        int steps = (int) Math.max(4, from.distanceTo(to) * 2);
+        for (int i = 0; i <= steps; i++) {
+            Vec3 p = from.lerp(to, i / (double) steps);
+            level.sendParticles(ParticleTypes.ELECTRIC_SPARK, p.x, p.y, p.z, 1, 0.05D, 0.05D, 0.05D, 0.0D);
+        }
+        level.playSound(null, target.blockPosition(), ModSounds.ZAP.get(), SoundSource.BLOCKS, 1.0F, 1.0F);
+        target.hurt(level.damageSources().magic(), 500.0F);
+        return true;
+    }
+
+    private void resume(ServerLevel level) {
+        if (mode == 2 && continuousAttack) {
+            float difficulty = 1.0F + powerLevel / 4500;
+            Wave wave = WaveBuilder.generateWave(difficulty, difficulty, 240);
+            spawner.resume(level, wave, spawnerElapsedRestore);
+        } else if (mode == 1 || mode == 3) {
+            spawner.resume(level, WaveBuilder.mainInvasionWave(Math.max(1, currentWave)), spawnerElapsedRestore);
+        }
+    }
+
+    // ------------------------------------------------------------------
+    // Players
+
+    private void bindPlayers(ServerLevel level) {
+        long now = level.getGameTime();
+        for (Player player : level.getEntitiesOfClass(Player.class, boundingBoxToRadius())) {
+            if (player.isSpectator()) {
+                continue;
+            }
+            Long last = boundPlayers.get(player.getUUID());
+            if (last == null || now - last > BIND_EXPIRE_TICKS) {
+                messageBoundPlayers(Component.translatable("message.invasion.bound", player.getDisplayName()));
+                if (last == null) {
+                    player.sendSystemMessage(Component.translatable("message.invasion.bound", player.getDisplayName()));
+                }
+            }
+            boundPlayers.put(player.getUUID(), now);
+        }
+    }
+
+    public void messageBoundPlayers(Component message) {
+        if (!(level instanceof ServerLevel serverLevel)) {
+            return;
+        }
+        for (UUID id : boundPlayers.keySet()) {
+            ServerPlayer player = serverLevel.getServer().getPlayerList().getPlayer(id);
+            if (player != null) {
+                player.sendSystemMessage(message);
+            }
+        }
+    }
+
+    private void messageNearbyPlayers(ServerLevel level, Component message) {
+        for (Player player : level.getEntitiesOfClass(Player.class, new AABB(worldPosition).inflate(16.0D))) {
+            player.displayClientMessage(message, true);
+        }
+    }
+
+    private void playSoundForBoundPlayers(ServerLevel level, SoundEvent sound) {
+        for (UUID id : boundPlayers.keySet()) {
+            ServerPlayer player = level.getServer().getPlayerList().getPlayer(id);
+            if (player != null) {
+                level.playSound(null, player.blockPosition(), sound, SoundSource.MASTER, 1.0F, 1.0F);
+            }
+        }
+    }
+
+    private void updateBossBar(ServerLevel level) {
+        if (!isActive()) {
+            if (bossBar != null) {
+                bossBar.removeAllPlayers();
+            }
+            return;
+        }
+        if (bossBar == null) {
+            bossBar = new ServerBossEvent(Component.translatable("block.invasion.nexus"), BossEvent.BossBarColor.PURPLE,
+                    BossEvent.BossBarOverlay.NOTCHED_10);
+        }
+        Component name;
+        if (mode == 2 && !continuousAttack) {
+            name = Component.translatable("bossbar.invasion.continuous", powerLevel, hp);
+            bossBar.setColor(BossEvent.BossBarColor.BLUE);
+        } else if (mode == 2) {
+            name = Component.translatable("bossbar.invasion.continuous_attack", Math.max(0, mobsLeftInWave), hp);
+            bossBar.setColor(BossEvent.BossBarColor.RED);
+        } else {
+            name = Component.translatable("bossbar.invasion.wave", currentWave, hp);
+            bossBar.setColor(BossEvent.BossBarColor.PURPLE);
+        }
+        bossBar.setName(name);
+        bossBar.setProgress(Mth.clamp(hp / (float) MAX_HP, 0.0F, 1.0F));
+        Vec3 c = getCenter();
+        double range = getSpawnRadius() + 16;
+        for (ServerPlayer player : level.players()) {
+            if (player.distanceToSqr(c) < range * range) {
+                bossBar.addPlayer(player);
+            } else {
+                bossBar.removePlayer(player);
+            }
+        }
+    }
+
+    private void setMode(int newMode) {
+        mode = newMode;
+        if (level != null) {
+            BlockState state = level.getBlockState(worldPosition);
+            boolean active = mode != 0;
+            if (state.getBlock() instanceof NexusBlock && state.getValue(NexusBlock.ACTIVE) != active) {
+                level.setBlock(worldPosition, state.setValue(NexusBlock.ACTIVE, active), 3);
+            }
+        }
+        setChanged();
+    }
+
+    /** Called when the Nexus block is removed. */
     public void onBroken() {
         if (level instanceof ServerLevel serverLevel) {
-            if (active) {
-                stop(serverLevel);
+            if (mode != 0) {
+                emergencyStop();
+            }
+            if (bossBar != null) {
+                bossBar.removeAllPlayers();
             }
             for (int i = 0; i < items.getSlots(); i++) {
                 ItemStack stack = items.getStackInSlot(i);
@@ -494,82 +748,16 @@ public class NexusBlockEntity extends BlockEntity implements MenuProvider {
         }
     }
 
-    // ------------------------------------------------------------------
-    // Helpers
-
-    private void output(ServerLevel level, ItemStack stack) {
-        ItemStack rest = items.insertItem(SLOT_OUTPUT, stack, false);
-        if (!rest.isEmpty()) {
-            Containers.dropItemStack(level, worldPosition.getX() + 0.5D, worldPosition.getY() + 1.1D, worldPosition.getZ() + 0.5D, rest);
-        }
-    }
-
-    private void setActiveState(Level level, boolean value) {
-        BlockState state = level.getBlockState(worldPosition);
-        if (state.getBlock() instanceof NexusBlock && state.getValue(NexusBlock.ACTIVE) != value) {
-            level.setBlock(worldPosition, state.setValue(NexusBlock.ACTIVE, value), 3);
-        }
-    }
-
-    private AABB searchBox() {
-        return new AABB(worldPosition).inflate(getSpawnRadius() + 48);
-    }
-
-    private List<Mob> linkedMobs(ServerLevel level) {
-        return level.getEntitiesOfClass(Mob.class, searchBox(),
-                mob -> mob.isAlive() && mob instanceof InvasionMob invader && invader.getNexusLink().isLinkedTo(worldPosition));
-    }
-
-    private int countAlive(ServerLevel level) {
-        return linkedMobs(level).size();
-    }
-
-    private void forEachLinkedMob(ServerLevel level, java.util.function.Consumer<Mob> action) {
-        linkedMobs(level).forEach(action);
-    }
-
-    private double broadcastRangeSqr() {
-        double range = getSpawnRadius() + 32;
-        return range * range;
-    }
-
-    private void broadcast(ServerLevel level, Component message, boolean actionBar) {
-        Vec3 c = getCenter();
-        for (ServerPlayer player : level.players()) {
-            if (player.distanceToSqr(c) < broadcastRangeSqr()) {
-                player.displayClientMessage(message, actionBar);
-            }
-        }
-    }
-
-    private void updateBossBar(ServerLevel level) {
-        if (bossBar == null) {
-            bossBar = new ServerBossEvent(Component.translatable("block.invasion.nexus"),
-                    BossEvent.BossBarColor.PURPLE, BossEvent.BossBarOverlay.NOTCHED_10);
-        }
-        Component name = phase == Phase.RESTING
-                ? Component.translatable("bossbar.invasion.resting", wave, Mth.ceil(timer / 20.0F), hp, getMaxHp())
-                : Component.translatable("bossbar.invasion.fighting", wave, getRemainingMobs(), hp, getMaxHp());
-        bossBar.setName(name);
-        bossBar.setProgress(Mth.clamp(hp / (float) getMaxHp(), 0.0F, 1.0F));
-        bossBar.setColor(phase == Phase.RESTING ? BossEvent.BossBarColor.BLUE : BossEvent.BossBarColor.PURPLE);
-
-        Vec3 c = getCenter();
-        for (ServerPlayer player : level.players()) {
-            if (player.distanceToSqr(c) < broadcastRangeSqr()) {
-                bossBar.addPlayer(player);
-            } else {
-                bossBar.removePlayer(player);
-            }
-        }
-    }
-
     @Override
     public void setRemoved() {
         super.setRemoved();
         if (bossBar != null) {
             bossBar.removeAllPlayers();
         }
+    }
+
+    public Component describe() {
+        return Component.translatable("message.invasion.status", nexusLevel, currentWave, hp, getSpawnRadius(), powerLevel, mode);
     }
 
     // ------------------------------------------------------------------
@@ -593,54 +781,60 @@ public class NexusBlockEntity extends BlockEntity implements MenuProvider {
     protected void saveAdditional(CompoundTag tag) {
         super.saveAdditional(tag);
         tag.put("Items", items.serializeNBT());
-        tag.putBoolean("Active", active);
-        tag.putString("Mode", mode.name());
-        tag.putString("Phase", phase.name());
-        tag.putInt("Wave", wave);
-        tag.putInt("NexusLevel", nexusLevel);
-        tag.putInt("Hp", hp);
-        tag.putInt("Kills", kills);
-        tag.putInt("Generation", generation);
-        tag.putInt("SpawnRadius", getSpawnRadius());
-        tag.putInt("Timer", timer);
-        tag.putInt("WaveTicks", waveTicks);
-        ListTag queue = new ListTag();
-        for (EntityType<?> type : spawnQueue) {
-            queue.add(StringTag.valueOf(EntityType.getKey(type).toString()));
+        tag.putInt("mode", mode);
+        tag.putInt("activationTimer", activationTimer);
+        tag.putInt("currentWave", currentWave);
+        tag.putInt("spawnRadius", getSpawnRadius());
+        tag.putInt("nexusLevel", nexusLevel);
+        tag.putInt("hp", hp);
+        tag.putInt("nexusKills", nexusKills);
+        tag.putInt("generation", generation);
+        tag.putInt("cookTime", cookTime);
+        tag.putInt("powerLevel", powerLevel);
+        tag.putInt("lastPowerLevel", lastPowerLevel);
+        tag.putLong("nextAttackTime", nextAttackTime);
+        tag.putBoolean("continuousAttack", continuousAttack);
+        tag.putBoolean("activated", activated);
+        tag.putLong("spawnerElapsed", spawner.getElapsed());
+        tag.putInt("mobsLeftInWave", mobsLeftInWave);
+        tag.putInt("mobsToKillInWave", mobsToKillInWave);
+        ListTag players = new ListTag();
+        for (UUID id : boundPlayers.keySet()) {
+            players.add(NbtUtils.createUUID(id));
         }
-        tag.put("SpawnQueue", queue);
+        tag.put("boundPlayers", players);
     }
 
     @Override
     public void load(CompoundTag tag) {
         super.load(tag);
         items.deserializeNBT(tag.getCompound("Items"));
-        active = tag.getBoolean("Active");
-        mode = parseEnum(Mode.class, tag.getString("Mode"), Mode.WAVE);
-        phase = parseEnum(Phase.class, tag.getString("Phase"), Phase.IDLE);
-        wave = Math.max(1, tag.getInt("Wave"));
-        nexusLevel = tag.getInt("NexusLevel");
-        hp = tag.getInt("Hp");
-        kills = tag.getInt("Kills");
-        generation = tag.getInt("Generation");
-        spawnRadius = tag.contains("SpawnRadius") ? tag.getInt("SpawnRadius") : -1;
-        timer = tag.getInt("Timer");
-        waveTicks = tag.getInt("WaveTicks");
-        spawnQueue.clear();
-        ListTag queue = tag.getList("SpawnQueue", Tag.TAG_STRING);
-        for (int i = 0; i < queue.size(); i++) {
-            EntityType.byString(queue.getString(i)).ifPresent(spawnQueue::add);
+        mode = tag.getInt("mode");
+        activationTimer = tag.getInt("activationTimer");
+        currentWave = tag.getInt("currentWave");
+        spawnRadius = tag.contains("spawnRadius") ? tag.getInt("spawnRadius") : -1;
+        nexusLevel = Math.max(1, tag.getInt("nexusLevel"));
+        hp = tag.contains("hp") ? tag.getInt("hp") : MAX_HP;
+        lastHp = hp;
+        nexusKills = tag.getInt("nexusKills");
+        generation = tag.getInt("generation");
+        cookTime = tag.getInt("cookTime");
+        powerLevel = tag.getInt("powerLevel");
+        lastPowerLevel = tag.getInt("lastPowerLevel");
+        nextAttackTime = tag.getLong("nextAttackTime");
+        continuousAttack = tag.getBoolean("continuousAttack");
+        activated = tag.getBoolean("activated");
+        mobsLeftInWave = tag.getInt("mobsLeftInWave");
+        mobsToKillInWave = tag.getInt("mobsToKillInWave");
+        lastMobsLeftInWave = mobsLeftInWave;
+        boundPlayers.clear();
+        ListTag players = tag.getList("boundPlayers", Tag.TAG_INT_ARRAY);
+        for (Tag player : players) {
+            boundPlayers.put(NbtUtils.loadUUID(player), 0L);
         }
-        if (!active) {
-            phase = Phase.IDLE;
-        }
-    }
-
-    private static <E extends Enum<E>> E parseEnum(Class<E> type, String name, E fallback) {
-        try {
-            return Enum.valueOf(type, name);
-        } catch (IllegalArgumentException e) {
-            return fallback;
+        if (mode == 1 || mode == 3 || (mode == 2 && continuousAttack)) {
+            resumedFromNBT = true;
+            spawnerElapsedRestore = tag.getLong("spawnerElapsed");
         }
     }
 }

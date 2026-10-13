@@ -1,20 +1,14 @@
 {
-  "type": "minecraft:crafting_shapeless",
+  "type": "minecraft:crafting_shaped",
   "category": "misc",
-  "ingredients": [
-    {
-      "item": "invasion:damping_agent"
-    },
-    {
-      "item": "invasion:rift_flux"
-    },
-    {
-      "item": "invasion:rift_flux"
-    },
-    {
-      "item": "minecraft:lapis_block"
-    }
+  "pattern": [
+    "XXX"
   ],
+  "key": {
+    "X": {
+      "item": "invasion:damping_agent"
+    }
+  },
   "result": {
     "item": "invasion:strong_damping_agent",
     "count": 1

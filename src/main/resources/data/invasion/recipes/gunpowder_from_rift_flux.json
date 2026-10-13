@@ -1,0 +1,16 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "pattern": [
+    "XXX"
+  ],
+  "key": {
+    "X": {
+      "item": "invasion:rift_flux"
+    }
+  },
+  "result": {
+    "item": "minecraft:gunpowder",
+    "count": 16
+  }
+}
