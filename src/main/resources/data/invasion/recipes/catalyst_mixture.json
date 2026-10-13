@@ -1,0 +1,25 @@
+{
+  "type": "minecraft:crafting_shapeless",
+  "category": "misc",
+  "ingredients": [
+    {
+      "item": "minecraft:redstone"
+    },
+    {
+      "item": "minecraft:bone"
+    },
+    {
+      "item": "minecraft:rotten_flesh"
+    },
+    {
+      "tag": "minecraft:coals"
+    },
+    {
+      "item": "minecraft:bowl"
+    }
+  ],
+  "result": {
+    "item": "invasion:catalyst_mixture",
+    "count": 1
+  }
+}

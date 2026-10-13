@@ -1,0 +1,24 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "pattern": [
+    " L ",
+    "RDR",
+    " L "
+  ],
+  "key": {
+    "L": {
+      "item": "minecraft:lapis_lazuli"
+    },
+    "R": {
+      "item": "minecraft:redstone"
+    },
+    "D": {
+      "item": "minecraft:diamond"
+    }
+  },
+  "result": {
+    "item": "invasion:phase_crystal",
+    "count": 1
+  }
+}

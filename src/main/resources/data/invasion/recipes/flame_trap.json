@@ -1,0 +1,19 @@
+{
+  "type": "minecraft:crafting_shapeless",
+  "category": "misc",
+  "ingredients": [
+    {
+      "item": "invasion:empty_trap"
+    },
+    {
+      "item": "minecraft:lava_bucket"
+    },
+    {
+      "item": "invasion:rift_flux"
+    }
+  ],
+  "result": {
+    "item": "invasion:flame_trap",
+    "count": 1
+  }
+}

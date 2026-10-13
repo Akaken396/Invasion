@@ -1,0 +1,25 @@
+{
+  "type": "minecraft:crafting_shapeless",
+  "category": "misc",
+  "ingredients": [
+    {
+      "item": "minecraft:coal_block"
+    },
+    {
+      "item": "minecraft:obsidian"
+    },
+    {
+      "item": "invasion:rift_flux"
+    },
+    {
+      "item": "invasion:rift_flux"
+    },
+    {
+      "item": "minecraft:bowl"
+    }
+  ],
+  "result": {
+    "item": "invasion:stable_catalyst_mixture",
+    "count": 1
+  }
+}

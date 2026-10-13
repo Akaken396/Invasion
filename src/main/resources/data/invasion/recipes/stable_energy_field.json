@@ -1,0 +1,10 @@
+{
+  "type": "minecraft:smelting",
+  "category": "misc",
+  "ingredient": {
+    "item": "invasion:stable_catalyst_mixture"
+  },
+  "result": "invasion:stable_energy_field",
+  "experience": 2.0,
+  "cookingtime": 200
+}

@@ -1,0 +1,21 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "pattern": [
+    "F",
+    "I",
+    "I"
+  ],
+  "key": {
+    "F": {
+      "item": "invasion:rift_flux"
+    },
+    "I": {
+      "item": "minecraft:iron_ingot"
+    }
+  },
+  "result": {
+    "item": "invasion:probe",
+    "count": 1
+  }
+}

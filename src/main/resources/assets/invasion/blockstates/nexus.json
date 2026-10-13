@@ -1,0 +1,10 @@
+{
+  "variants": {
+    "active=false": {
+      "model": "invasion:block/nexus"
+    },
+    "active=true": {
+      "model": "invasion:block/nexus_active"
+    }
+  }
+}

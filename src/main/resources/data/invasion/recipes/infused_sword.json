@@ -1,0 +1,21 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "pattern": [
+    " F ",
+    "FSF",
+    " F "
+  ],
+  "key": {
+    "F": {
+      "item": "invasion:rift_flux"
+    },
+    "S": {
+      "item": "minecraft:diamond_sword"
+    }
+  },
+  "result": {
+    "item": "invasion:infused_sword",
+    "count": 1
+  }
+}

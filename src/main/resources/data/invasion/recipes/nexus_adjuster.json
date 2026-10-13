@@ -1,0 +1,24 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "pattern": [
+    " R ",
+    "IFI",
+    " I "
+  ],
+  "key": {
+    "R": {
+      "item": "minecraft:redstone"
+    },
+    "I": {
+      "item": "minecraft:iron_ingot"
+    },
+    "F": {
+      "item": "invasion:rift_flux"
+    }
+  },
+  "result": {
+    "item": "invasion:nexus_adjuster",
+    "count": 1
+  }
+}

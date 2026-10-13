@@ -1,0 +1,24 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "pattern": [
+    "OLO",
+    "LPL",
+    "OLO"
+  ],
+  "key": {
+    "O": {
+      "item": "minecraft:obsidian"
+    },
+    "L": {
+      "item": "minecraft:lapis_block"
+    },
+    "P": {
+      "item": "invasion:phase_crystal"
+    }
+  },
+  "result": {
+    "item": "invasion:nexus",
+    "count": 1
+  }
+}
