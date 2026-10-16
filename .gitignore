@@ -14,4 +14,3 @@ logs/
 .settings/
 bin/
 eclipse/
-__pycache__/
