@@ -57,6 +57,17 @@ public final class WaveBuilder {
     // Main invasion (wave mode)
 
     public static Wave mainInvasionWave(int wave) {
+        Wave result = buildMainWave(wave);
+        int engineers = wave < 6 ? 0 : Math.min(com.invasion.Config.ENGINEERS_MAX.get(), com.invasion.Config.ENGINEERS_BASE.get() + wave / 4);
+        if (engineers > 0) {
+            // Extra pigman engineers spread over the wave, so there is always someone to build bridges and ladders.
+            result.addEntry(new WaveEntry(0, (int) (result.getTotalTime() * 0.85F), engineers, 2000,
+                    late("pigengy_t1_any", wave >= com.invasion.Config.LATE_WAVE_START.get())));
+        }
+        return result;
+    }
+
+    private static Wave buildMainWave(int wave) {
         if (wave > 11) {
             return extendedWave(wave);
         }
@@ -208,6 +219,10 @@ public final class WaveBuilder {
             mobScale = Math.min(mobScale, com.invasion.Config.MAX_WAVE_MOBS.get() / 23.0F);
         }
         float timeScale = 1.0F + (wave - 11) * 0.04F;
+        if (late) {
+            // Late waves: more mobs in a shorter time, so that many invaders are on the field at once.
+            timeScale = Math.min(timeScale, 1.5F);
+        }
         List<WaveEntry> e = new ArrayList<>();
         RandomSelectionPool<EntityPattern> base = random().addPool(late("zombie_t1_any", late), 1.5F).addPool(late("zombie_t2_any_basic", late), 2.2F)
                 .addPool(late("zombie_t3_any", late), 0.26F).addPool(late("zombiePigman_t1_any", late), 0.8F).addPool(late("zombiePigman_t2_any", late), 0.5F)

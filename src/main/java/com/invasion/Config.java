@@ -24,6 +24,24 @@ public final class Config {
     public static final ForgeConfigSpec.IntValue SPELL_CAST_INTERVAL;
     public static final ForgeConfigSpec.ConfigValue<java.util.List<? extends String>> SPELL_BLACKLIST;
 
+    // Special waves
+    public static final ForgeConfigSpec.IntValue ENGINEERS_BASE;
+    public static final ForgeConfigSpec.IntValue ENGINEERS_MAX;
+    public static final ForgeConfigSpec.DoubleValue WARD_CHANCE;
+    public static final ForgeConfigSpec.DoubleValue WARD_CHANCE_LATE;
+    public static final ForgeConfigSpec.IntValue GRAVITY_WAVE_INTERVAL;
+    public static final ForgeConfigSpec.IntValue SPELL_WAVE_INTERVAL;
+    public static final ForgeConfigSpec.IntValue FOREIGN_WAVE_INTERVAL;
+    public static final ForgeConfigSpec.IntValue FOREIGN_MOBS_BASE;
+    public static final ForgeConfigSpec.IntValue FOREIGN_MOBS_MAX;
+    public static final ForgeConfigSpec.ConfigValue<java.util.List<? extends String>> FOREIGN_MOBS;
+    public static final ForgeConfigSpec.IntValue POWER_STEP_START;
+    public static final ForgeConfigSpec.IntValue POWER_STEP_INTERVAL;
+    public static final ForgeConfigSpec.DoubleValue POWER_STEP_HEALTH;
+    public static final ForgeConfigSpec.DoubleValue POWER_STEP_DAMAGE;
+    public static final ForgeConfigSpec.DoubleValue POWER_STEP_SPEED;
+    public static final ForgeConfigSpec.ConfigValue<java.util.List<? extends String>> BLOCKED_ENTITIES;
+
     // Boss rush
     public static final ForgeConfigSpec.ConfigValue<java.util.List<? extends String>> BOSS_RUSH_BOSSES;
     public static final ForgeConfigSpec.DoubleValue BOSS_HEALTH_MULTIPLIER;
@@ -70,9 +88,9 @@ public final class Config {
                         "warded pigman engineers and Iron's Spells casters.")
                 .defineInRange("lateWaveStart", 50, 12, 10000);
         MAX_WAVE_MOBS = BUILDER.comment("Maximum number of mobs in one wave from lateWaveStart on (performance).")
-                .defineInRange("maxWaveMobs", 150, 10, 10000);
+                .defineInRange("maxLateWaveMobs", 400, 10, 10000);
         MAX_ALIVE_MOBS = BUILDER.comment("Maximum number of invaders alive at once per Nexus, in every wave (performance).")
-                .defineInRange("maxAliveMobs", 80, 5, 1000);
+                .defineInRange("maxAliveInvaders", 150, 5, 1000);
         MAX_TNT_THROWERS = BUILDER.comment("Maximum number of TNT throwing throwers (tier 2) alive at once. Extra ones become tier 1.")
                 .defineInRange("maxTntThrowers", 10, 0, 1000);
         LATE_HEALTH_BONUS = BUILDER.comment("Extra health of late-wave mobs at lateWaveStart (0.5 = +50%).")
@@ -93,6 +111,53 @@ public final class Config {
                         "irons_spellbooks:heal", "irons_spellbooks:greater_heal", "irons_spellbooks:cleanse", "irons_spellbooks:invisibility",
                         "irons_spellbooks:gluttony", "irons_spellbooks:angel_wing", "irons_spellbooks:telekinesis",
                         "irons_spellbooks:counterspell", "irons_spellbooks:frost_step", "irons_spellbooks:evasion"), o -> o instanceof String);
+        BUILDER.pop();
+
+        BUILDER.push("specialWaves");
+        ENGINEERS_BASE = BUILDER.comment("Extra pigman engineers in every wave from wave 6 on: base + wave / 4.")
+                .defineInRange("engineersBase", 1, 0, 1000);
+        ENGINEERS_MAX = BUILDER.comment("Maximum number of extra pigman engineers per wave.")
+                .defineInRange("engineersMax", 30, 0, 1000);
+        WARD_CHANCE = BUILDER.comment("Chance for an invader to be warded against magic (Iron's Spells / Ars Nouveau) before the late waves.")
+                .defineInRange("wardChance", 0.05D, 0.0D, 1.0D);
+        WARD_CHANCE_LATE = BUILDER.comment("Chance for an invader to be warded against magic from lateWaveStart on.")
+                .defineInRange("wardChanceLate", 0.2D, 0.0D, 1.0D);
+        GRAVITY_WAVE_INTERVAL = BUILDER.comment("Every N waves: gravity wave, flight is disabled for players near the Nexus",
+                        "(Ars Nouveau gravity effect when installed). 0 = off.")
+                .defineInRange("gravityWaveInterval", 5, 0, 1000);
+        SPELL_WAVE_INTERVAL = BUILDER.comment("Every N waves: every invader casts Iron's Spells 'n Spellbooks spells. 0 = off.")
+                .defineInRange("spellWaveInterval", 10, 0, 1000);
+        FOREIGN_WAVE_INTERVAL = BUILDER.comment("Every N waves: mobs of other mods (non-boss mobs of All the Mods 9) join the wave. 0 = off.")
+                .defineInRange("foreignWaveInterval", 15, 0, 1000);
+        FOREIGN_MOBS_BASE = BUILDER.comment("Number of foreign mobs in such a wave: base + wave / 3.")
+                .defineInRange("foreignMobsBase", 10, 0, 1000);
+        FOREIGN_MOBS_MAX = BUILDER.comment("Maximum number of foreign mobs per wave.")
+                .defineInRange("foreignMobsMax", 60, 0, 1000);
+        FOREIGN_MOBS = BUILDER.comment("Mobs of other mods used in foreign waves. Mobs of mods that are not installed are skipped.")
+                .defineList("foreignMobs", java.util.List.of(
+                        "cataclysm:deepling", "cataclysm:deepling_angler", "cataclysm:deepling_brute", "cataclysm:deepling_priest",
+                        "cataclysm:deepling_warlock", "cataclysm:ender_golem", "cataclysm:endermaptera", "cataclysm:ignited_revenant",
+                        "cataclysm:koboleton", "cataclysm:amethyst_crab", "cataclysm:the_prowler", "cataclysm:the_watcher",
+                        "irons_spellbooks:pyromancer", "irons_spellbooks:cryomancer", "irons_spellbooks:necromancer",
+                        "irons_spellbooks:archevoker", "irons_spellbooks:apothecarist", "irons_spellbooks:citadel_keeper",
+                        "undergarden:rotwalker", "undergarden:rotbeast", "undergarden:rotling", "undergarden:brute",
+                        "undergarden:forgotten", "undergarden:nargoyle", "undergarden:stoneborn", "undergarden:muncher",
+                        "undergarden:sploogie", "twilightforest:redcap", "twilightforest:skeleton_druid", "twilightforest:kobold",
+                        "twilightforest:minotaur", "twilightforest:troll", "twilightforest:wraith", "twilightforest:fire_beetle",
+                        "twilightforest:slime_beetle", "twilightforest:pinch_beetle", "twilightforest:hostile_wolf",
+                        "twilightforest:winter_wolf", "twilightforest:yeti", "artifacts:mimic"), o -> o instanceof String);
+        POWER_STEP_START = BUILDER.comment("From this wave on the invaders get stronger every powerStepInterval waves.")
+                .defineInRange("powerStepStart", 100, 1, 100000);
+        POWER_STEP_INTERVAL = BUILDER.comment("Waves per power step.")
+                .defineInRange("powerStepInterval", 5, 1, 1000);
+        POWER_STEP_HEALTH = BUILDER.comment("Extra health per power step (0.25 = +25%).")
+                .defineInRange("powerStepHealth", 0.25D, 0.0D, 100.0D);
+        POWER_STEP_DAMAGE = BUILDER.comment("Extra attack damage per power step.")
+                .defineInRange("powerStepDamage", 0.1D, 0.0D, 100.0D);
+        POWER_STEP_SPEED = BUILDER.comment("Extra movement speed per power step (capped at +50%).")
+                .defineInRange("powerStepSpeed", 0.03D, 0.0D, 10.0D);
+        BLOCKED_ENTITIES = BUILDER.comment("Entities that may not spawn near an active Nexus (e.g. EvilCraft vengeance spirits).")
+                .defineList("blockedEntities", java.util.List.of("evilcraft:vengeance_spirit"), o -> o instanceof String);
         BUILDER.pop();
 
         BUILDER.push("bossRush");

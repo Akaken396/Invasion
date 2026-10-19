@@ -19,6 +19,7 @@ import net.minecraft.nbt.ListTag;
 import net.minecraft.nbt.NbtUtils;
 import net.minecraft.nbt.Tag;
 import net.minecraft.network.chat.Component;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerBossEvent;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
@@ -109,6 +110,8 @@ public class NexusBlockEntity extends BlockEntity implements MenuProvider {
     private long spawnerElapsedRestore;
     private List<Mob> mobList = List.of();
     private int aliveEstimate;
+    private int foreignToSpawn;
+    private int foreignTimer;
     @Nullable
     private ServerBossEvent bossBar;
 
@@ -226,6 +229,11 @@ public class NexusBlockEntity extends BlockEntity implements MenuProvider {
     }
 
     private void tick(ServerLevel level) {
+        if (isActive()) {
+            ACTIVE.add(this);
+        } else {
+            ACTIVE.remove(this);
+        }
         updateStatus(level);
         if (mode == 1 || mode == 2 || mode == 3 || mode == 5) {
             if (resumedFromNBT) {
@@ -377,6 +385,7 @@ public class NexusBlockEntity extends BlockEntity implements MenuProvider {
         }
         currentWave = startWave;
         spawner.beginNextWave(level, currentWave);
+        onWaveBegin(level);
         setMode(mode == 0 ? 1 : 3);
         bindPlayers(level);
         hp = MAX_HP;
@@ -413,6 +422,7 @@ public class NexusBlockEntity extends BlockEntity implements MenuProvider {
             return;
         }
         generateFlux(1);
+        tickSpecialWave(level);
         if (spawner.isWaveComplete()) {
             if (waveDelayTimer == -1L) {
                 messageBoundPlayers(Component.translatable("message.invasion.wave_almost_complete", currentWave).withStyle(ChatFormatting.GREEN));
@@ -425,6 +435,7 @@ public class NexusBlockEntity extends BlockEntity implements MenuProvider {
                     currentWave++;
                     messageBoundPlayers(Component.translatable("message.invasion.wave_begin", currentWave).withStyle(ChatFormatting.RED));
                     spawner.beginNextWave(level, currentWave);
+        onWaveBegin(level);
                     waveDelayTimer = -1L;
                     playSoundForBoundPlayers(level, ModSounds.RUMBLE.get());
                     if (currentWave > nexusLevel) {
@@ -538,6 +549,7 @@ public class NexusBlockEntity extends BlockEntity implements MenuProvider {
         currentWave++;
         nexusLevel = Math.max(nexusLevel, currentWave);
         spawner.beginNextWave(level, currentWave);
+        onWaveBegin(level);
         waveDelayTimer = -1L;
         messageBoundPlayers(Component.translatable("message.invasion.accelerated", currentWave).withStyle(ChatFormatting.DARK_PURPLE));
         playSoundForBoundPlayers(level, ModSounds.RUMBLE.get());
@@ -722,8 +734,78 @@ public class NexusBlockEntity extends BlockEntity implements MenuProvider {
 
     private void killAllMobs(ServerLevel level) {
         for (Mob mob : level.getEntitiesOfClass(Mob.class, boundingBoxToRadius().inflate(10.0D, 64.0D, 10.0D),
-                mob -> mob instanceof InvasionMob invader && invader.getNexusLink().isLinkedTo(worldPosition))) {
+                mob -> (mob instanceof InvasionMob invader && invader.getNexusLink().isLinkedTo(worldPosition))
+                        || worldPosition.equals(com.invasion.nexus.ForeignInvaders.nexusOf(mob)))) {
             mob.hurt(level.damageSources().magic(), 500.0F);
+        }
+    }
+
+    // ------------------------------------------------------------------
+    // Special waves
+
+    private static final java.util.Set<NexusBlockEntity> ACTIVE = java.util.concurrent.ConcurrentHashMap.newKeySet();
+
+    /** Nexuses with a running invasion (used to keep unwanted entities away). */
+    public static java.util.Collection<NexusBlockEntity> activeNexuses() {
+        return ACTIVE;
+    }
+
+    private void onWaveBegin(ServerLevel level) {
+        int wave = currentWave;
+        foreignToSpawn = 0;
+        if (com.invasion.nexus.LateWaveScaling.isGravityWave(wave)) {
+            messageBoundPlayers(Component.translatable("message.invasion.wave.gravity").withStyle(ChatFormatting.DARK_AQUA));
+        }
+        if (com.invasion.nexus.LateWaveScaling.isSpellWave(wave) && com.invasion.compat.IronsSpellsCompat.isLoaded()) {
+            messageBoundPlayers(Component.translatable("message.invasion.wave.spell").withStyle(ChatFormatting.LIGHT_PURPLE));
+        }
+        if (com.invasion.nexus.LateWaveScaling.isForeignWave(wave) && !com.invasion.nexus.ForeignInvaders.availableTypes().isEmpty()) {
+            foreignToSpawn = Math.min(Config.FOREIGN_MOBS_MAX.get(), Config.FOREIGN_MOBS_BASE.get() + wave / 3);
+            messageBoundPlayers(Component.translatable("message.invasion.wave.foreign").withStyle(ChatFormatting.DARK_GREEN));
+        }
+        if (com.invasion.nexus.LateWaveScaling.isPowerStepWave(wave)) {
+            messageBoundPlayers(Component.translatable("message.invasion.wave.power",
+                    com.invasion.nexus.LateWaveScaling.powerSteps(wave)).withStyle(ChatFormatting.DARK_RED));
+        }
+    }
+
+    private void tickSpecialWave(ServerLevel level) {
+        if (foreignToSpawn > 0 && --foreignTimer <= 0) {
+            foreignTimer = 10;
+            java.util.List<net.minecraft.world.entity.EntityType<?>> types = com.invasion.nexus.ForeignInvaders.availableTypes();
+            if (types.isEmpty()) {
+                foreignToSpawn = 0;
+            } else if (aliveEstimate < Config.MAX_ALIVE_MOBS.get()
+                    && com.invasion.nexus.ForeignInvaders.spawn(level, this, types.get(level.random.nextInt(types.size())), currentWave)) {
+                foreignToSpawn--;
+            }
+        }
+        if (com.invasion.nexus.LateWaveScaling.isGravityWave(currentWave) && level.getGameTime() % 20 == 0) {
+            applyGravity(level);
+        }
+    }
+
+    /** Gravity wave: no flying near the Nexus (Ars Nouveau gravity when installed, plus a plain flight ban). */
+    private void applyGravity(ServerLevel level) {
+        net.minecraft.world.effect.MobEffect gravity = net.minecraftforge.registries.ForgeRegistries.MOB_EFFECTS
+                .getValue(ResourceLocation.fromNamespaceAndPath("ars_nouveau", "gravity"));
+        if (gravity != null && "minecraft".equals(net.minecraftforge.registries.ForgeRegistries.MOB_EFFECTS.getKey(gravity).getNamespace())) {
+            gravity = null;
+        }
+        for (Player player : level.getEntitiesOfClass(Player.class, boundingBoxToRadius())) {
+            if (player.isCreative() || player.isSpectator()) {
+                continue;
+            }
+            if (gravity != null) {
+                player.addEffect(new net.minecraft.world.effect.MobEffectInstance(gravity, 600, 0, false, true));
+            }
+            if (player.getAbilities().flying) {
+                player.getAbilities().flying = false;
+                player.onUpdateAbilities();
+            }
+            if (player.isFallFlying()) {
+                player.stopFallFlying();
+            }
         }
     }
 
@@ -883,6 +965,7 @@ public class NexusBlockEntity extends BlockEntity implements MenuProvider {
     @Override
     public void setRemoved() {
         super.setRemoved();
+        ACTIVE.remove(this);
         if (bossBar != null) {
             bossBar.removeAllPlayers();
         }

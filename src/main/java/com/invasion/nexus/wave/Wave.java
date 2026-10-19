@@ -26,6 +26,10 @@ public class Wave {
         return spawned;
     }
 
+    public void addEntry(WaveEntry entry) {
+        entries.add(entry);
+    }
+
     public boolean isComplete() {
         return elapsed > totalTime;
     }

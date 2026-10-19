@@ -121,6 +121,28 @@ public class WaveSpawner implements ISpawnerAccess {
         return true;
     }
 
+    /** Moves the mob to a free spawn point on the ring. */
+    public boolean placeOnRing(ServerLevel level, Mob mob) {
+        if (spawnPoints.size() < MIN_SPAWN_POINTS) {
+            generateSpawnPoints(level);
+        }
+        for (int i = 0; i < 20; i++) {
+            SpawnPoint point = spawnPoints.random();
+            if (point == null) {
+                return false;
+            }
+            BlockPos pos = point.pos();
+            if (!level.isLoaded(pos)) {
+                continue;
+            }
+            mob.moveTo(pos.getX() + 0.5D, pos.getY(), pos.getZ() + 0.5D, level.random.nextFloat() * 360.0F, 0.0F);
+            if (level.noCollision(mob) && !level.containsAnyLiquid(mob.getBoundingBox())) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     /** Spawns a single invader anywhere on the ring (boss rush escorts). */
     public void spawnEscort(ServerLevel level, EntityConstruct construct) {
         if (spawnPoints.size() < MIN_SPAWN_POINTS) {
