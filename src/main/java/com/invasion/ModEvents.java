@@ -48,6 +48,15 @@ public final class ModEvents {
         }
     }
 
+    /** Spell casters of the late waves (Iron's Spells 'n Spellbooks). */
+    @SubscribeEvent
+    public static void onLivingTick(net.minecraftforge.event.entity.living.LivingEvent.LivingTickEvent event) {
+        if (event.getEntity().tickCount % 20 == 0 && event.getEntity() instanceof Mob mob && !mob.level().isClientSide
+                && mob.isAlive() && com.invasion.compat.IronsSpellsCompat.isCaster(mob)) {
+            com.invasion.compat.IronsSpellsCompat.tick(mob);
+        }
+    }
+
     @SubscribeEvent
     public static void onRegisterCommands(RegisterCommandsEvent event) {
         InvasionCommand.register(event.getDispatcher());

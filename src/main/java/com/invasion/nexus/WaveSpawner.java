@@ -1,7 +1,9 @@
 package com.invasion.nexus;
 
 import com.invasion.blockentity.NexusBlockEntity;
+import com.invasion.Config;
 import com.invasion.nexus.wave.EntityConstruct;
+import com.invasion.nexus.wave.IMEntityType;
 import com.invasion.nexus.wave.ISpawnerAccess;
 import com.invasion.nexus.wave.SpawnPoint;
 import com.invasion.nexus.wave.SpawnPointContainer;
@@ -146,6 +148,14 @@ public class WaveSpawner implements ISpawnerAccess {
         if (!(nexus.getLevel() instanceof ServerLevel level)) {
             return false;
         }
+        if (nexus.getAliveEstimate() >= Config.MAX_ALIVE_MOBS.get()) {
+            // Too many invaders alive: wait (performance).
+            return false;
+        }
+        if (construct.type() == IMEntityType.THROWER && construct.tier() >= 2
+                && nexus.countTntThrowers(level) >= Config.MAX_TNT_THROWERS.get()) {
+            construct = new EntityConstruct(IMEntityType.THROWER, 1, 0, construct.flavour());
+        }
         Mob mob = MobBuilder.create(construct, level, nexus.getBlockPos());
         if (mob == null) {
             return true;
@@ -162,7 +172,9 @@ public class WaveSpawner implements ISpawnerAccess {
             }
             mob.moveTo(pos.getX() + 0.5D, pos.getY(), pos.getZ() + 0.5D, level.random.nextFloat() * 360.0F, 0.0F);
             if (level.noCollision(mob) && !level.containsAnyLiquid(mob.getBoundingBox())) {
+                LateWaveScaling.apply(mob, nexus.getCurrentWave(), level.random);
                 level.addFreshEntity(mob);
+                nexus.noteSpawned();
                 level.sendParticles(ParticleTypes.PORTAL, mob.getX(), mob.getY() + 1.0D, mob.getZ(), 20, 0.4D, 0.8D, 0.4D, 0.4D);
                 return true;
             }

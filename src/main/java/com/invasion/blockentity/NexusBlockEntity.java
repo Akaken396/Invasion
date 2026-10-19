@@ -108,6 +108,7 @@ public class NexusBlockEntity extends BlockEntity implements MenuProvider {
     private boolean resumedFromNBT;
     private long spawnerElapsedRestore;
     private List<Mob> mobList = List.of();
+    private int aliveEstimate;
     @Nullable
     private ServerBossEvent bossBar;
 
@@ -155,6 +156,20 @@ public class NexusBlockEntity extends BlockEntity implements MenuProvider {
     /** True while an invasion or continuous mode is running. */
     public boolean isActive() {
         return mode == 1 || mode == 2 || mode == 3 || mode == 5;
+    }
+
+    /** Invaders of this Nexus currently alive (refreshed every 3 seconds, plus spawns since then). */
+    public int getAliveEstimate() {
+        return aliveEstimate;
+    }
+
+    public void noteSpawned() {
+        aliveEstimate++;
+    }
+
+    public int countTntThrowers(ServerLevel level) {
+        return level.getEntitiesOfClass(com.invasion.entity.IMThrower.class, boundingBoxToRadius().inflate(16.0D),
+                thrower -> thrower.isAlive() && thrower.getTier() >= 2 && thrower.getNexusLink().isLinkedTo(worldPosition)).size();
     }
 
     public WaveSpawner getSpawner() {
@@ -222,6 +237,7 @@ public class NexusBlockEntity extends BlockEntity implements MenuProvider {
                 bindPlayers(level);
                 mobList = level.getEntitiesOfClass(Mob.class, boundingBoxToRadius(),
                         mob -> mob.isAlive() && mob instanceof InvasionMob invader && invader.getNexusLink().isLinkedTo(worldPosition));
+                aliveEstimate = mobList.size();
             }
             if (mode == 1 || mode == 3) {
                 doInvasion(level);

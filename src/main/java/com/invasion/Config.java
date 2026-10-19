@@ -11,6 +11,19 @@ public final class Config {
     public static final ForgeConfigSpec.IntValue MIN_CONTINUOUS_DAYS;
     public static final ForgeConfigSpec.IntValue MAX_CONTINUOUS_DAYS;
 
+    // Late waves / performance
+    public static final ForgeConfigSpec.IntValue LATE_WAVE_START;
+    public static final ForgeConfigSpec.IntValue MAX_WAVE_MOBS;
+    public static final ForgeConfigSpec.IntValue MAX_ALIVE_MOBS;
+    public static final ForgeConfigSpec.IntValue MAX_TNT_THROWERS;
+    public static final ForgeConfigSpec.DoubleValue LATE_HEALTH_BONUS;
+    public static final ForgeConfigSpec.DoubleValue LATE_HEALTH_PER_WAVE;
+    public static final ForgeConfigSpec.DoubleValue LATE_DAMAGE_BONUS;
+    public static final ForgeConfigSpec.DoubleValue LATE_DAMAGE_PER_WAVE;
+    public static final ForgeConfigSpec.DoubleValue SPELL_CASTER_CHANCE;
+    public static final ForgeConfigSpec.IntValue SPELL_CAST_INTERVAL;
+    public static final ForgeConfigSpec.ConfigValue<java.util.List<? extends String>> SPELL_BLACKLIST;
+
     // Boss rush
     public static final ForgeConfigSpec.ConfigValue<java.util.List<? extends String>> BOSS_RUSH_BOSSES;
     public static final ForgeConfigSpec.DoubleValue BOSS_HEALTH_MULTIPLIER;
@@ -50,6 +63,36 @@ public final class Config {
                 .defineInRange("minDaysToAttack", 2, 0, 1000);
         MAX_CONTINUOUS_DAYS = BUILDER.comment("Maximum number of days between attacks in continuous mode.")
                 .defineInRange("maxDaysToAttack", 3, 0, 1000);
+        BUILDER.pop();
+
+        BUILDER.push("lateWaves");
+        LATE_WAVE_START = BUILDER.comment("From this wave on: mob count cap, armour and stat bonuses, vindicators/evokers instead of zombies,",
+                        "warded pigman engineers and Iron's Spells casters.")
+                .defineInRange("lateWaveStart", 50, 12, 10000);
+        MAX_WAVE_MOBS = BUILDER.comment("Maximum number of mobs in one wave from lateWaveStart on (performance).")
+                .defineInRange("maxWaveMobs", 150, 10, 10000);
+        MAX_ALIVE_MOBS = BUILDER.comment("Maximum number of invaders alive at once per Nexus, in every wave (performance).")
+                .defineInRange("maxAliveMobs", 80, 5, 1000);
+        MAX_TNT_THROWERS = BUILDER.comment("Maximum number of TNT throwing throwers (tier 2) alive at once. Extra ones become tier 1.")
+                .defineInRange("maxTntThrowers", 10, 0, 1000);
+        LATE_HEALTH_BONUS = BUILDER.comment("Extra health of late-wave mobs at lateWaveStart (0.5 = +50%).")
+                .defineInRange("healthBonus", 0.5D, 0.0D, 1000.0D);
+        LATE_HEALTH_PER_WAVE = BUILDER.comment("Additional health per wave after lateWaveStart.")
+                .defineInRange("healthPerWave", 0.05D, 0.0D, 100.0D);
+        LATE_DAMAGE_BONUS = BUILDER.comment("Extra attack damage of late-wave mobs at lateWaveStart.")
+                .defineInRange("damageBonus", 0.25D, 0.0D, 1000.0D);
+        LATE_DAMAGE_PER_WAVE = BUILDER.comment("Additional attack damage per wave after lateWaveStart.")
+                .defineInRange("damagePerWave", 0.03D, 0.0D, 100.0D);
+        SPELL_CASTER_CHANCE = BUILDER.comment("Share of late-wave mobs that cast random Iron's Spells 'n Spellbooks spells (needs that mod).")
+                .defineInRange("spellCasterChance", 0.1D, 0.0D, 1.0D);
+        SPELL_CAST_INTERVAL = BUILDER.comment("Seconds between two spells of a caster.")
+                .defineInRange("spellCastInterval", 6, 1, 600);
+        SPELL_BLACKLIST = BUILDER.comment("Spells that invaders never cast.")
+                .defineList("spellBlacklist", java.util.List.of(
+                        "irons_spellbooks:none", "irons_spellbooks:recall", "irons_spellbooks:portal", "irons_spellbooks:planar_sight",
+                        "irons_spellbooks:heal", "irons_spellbooks:greater_heal", "irons_spellbooks:cleanse", "irons_spellbooks:invisibility",
+                        "irons_spellbooks:gluttony", "irons_spellbooks:angel_wing", "irons_spellbooks:telekinesis",
+                        "irons_spellbooks:counterspell", "irons_spellbooks:frost_step", "irons_spellbooks:evasion"), o -> o instanceof String);
         BUILDER.pop();
 
         BUILDER.push("bossRush");

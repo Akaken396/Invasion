@@ -133,5 +133,10 @@
   "message.invasion.boss_rush.round": "Boss %s/%s: %s has arrived!",
   "message.invasion.boss_rush.defeated": "Boss %s/%s defeated! Next boss in %s seconds.",
   "message.invasion.boss_rush.complete": "Boss rush complete! All %s bosses defeated!",
-  "message.invasion.boss_rush.no_bosses": "No bosses available for the boss rush (check the config)."
+  "message.invasion.boss_rush.no_bosses": "No bosses available for the boss rush (check the config).",
+  "item.invasion.warded_pig_engineer_t2_spawn_egg": "Warded Pigman Engineer T2 Spawn Egg",
+  "item.invasion.vindicator_spawn_egg": "IM Vindicator Spawn Egg",
+  "item.invasion.evoker_spawn_egg": "IM Evoker Spawn Egg",
+  "entity.invasion.vindicator": "IM Vindicator",
+  "entity.invasion.evoker": "IM Evoker"
 }

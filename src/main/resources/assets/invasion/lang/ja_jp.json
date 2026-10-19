@@ -133,5 +133,10 @@
   "message.invasion.boss_rush.round": "ボス %s/%s: %s が現れた！",
   "message.invasion.boss_rush.defeated": "ボス %s/%s を撃破！ 次のボスまで %s 秒。",
   "message.invasion.boss_rush.complete": "ボスラッシュ制覇！ %s 体すべてのボスを倒した！",
-  "message.invasion.boss_rush.no_bosses": "ボスラッシュに出せるボスがいません（設定を確認してください）。"
+  "message.invasion.boss_rush.no_bosses": "ボスラッシュに出せるボスがいません（設定を確認してください）。",
+  "item.invasion.warded_pig_engineer_t2_spawn_egg": "耐魔ピッグマンエンジニア T2 のスポーンエッグ",
+  "item.invasion.vindicator_spawn_egg": "IMヴィンディケーター のスポーンエッグ",
+  "item.invasion.evoker_spawn_egg": "IMエヴォーカー のスポーンエッグ",
+  "entity.invasion.vindicator": "IMヴィンディケーター",
+  "entity.invasion.evoker": "IMエヴォーカー"
 }

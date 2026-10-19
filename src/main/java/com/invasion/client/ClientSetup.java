@@ -17,6 +17,8 @@ import com.invasion.registry.ModItems;
 import com.invasion.registry.ModMenus;
 import net.minecraft.client.gui.screens.MenuScreens;
 import net.minecraft.client.renderer.entity.CreeperRenderer;
+import net.minecraft.client.renderer.entity.EvokerRenderer;
+import net.minecraft.client.renderer.entity.VindicatorRenderer;
 import net.minecraft.client.renderer.entity.SkeletonRenderer;
 import net.minecraft.client.renderer.item.ItemProperties;
 import net.minecraft.resources.ResourceLocation;
@@ -66,6 +68,8 @@ public final class ClientSetup {
         event.registerEntityRenderer(ModEntities.THROWER.get(), ThrowerRenderer::new);
         event.registerEntityRenderer(ModEntities.IMP.get(), ImpRenderer::new);
         event.registerEntityRenderer(ModEntities.WOLF.get(), NexusWolfRenderer::new);
+        event.registerEntityRenderer(ModEntities.VINDICATOR.get(), VindicatorRenderer::new);
+        event.registerEntityRenderer(ModEntities.EVOKER.get(), EvokerRenderer::new);
         event.registerEntityRenderer(ModEntities.BOULDER.get(), SimpleEntityRenderers.BoulderRenderer::new);
         event.registerEntityRenderer(ModEntities.TRAP.get(), SimpleEntityRenderers.TrapRenderer::new);
         event.registerEntityRenderer(ModEntities.SPIDER_EGG.get(), SimpleEntityRenderers.SpiderEggRenderer::new);

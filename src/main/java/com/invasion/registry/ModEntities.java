@@ -3,6 +3,8 @@ package com.invasion.registry;
 import com.invasion.InvasionMod;
 import com.invasion.entity.Boulder;
 import com.invasion.entity.IMCreeper;
+import com.invasion.entity.IMEvoker;
+import com.invasion.entity.IMVindicator;
 import com.invasion.entity.IMImp;
 import com.invasion.entity.IMPigEngy;
 import com.invasion.entity.IMSkeleton;
@@ -58,6 +60,14 @@ public final class ModEntities {
             () -> EntityType.Builder.<IMImp>of(IMImp::new, MobCategory.MONSTER)
                     .sized(0.5F, 1.1F).fireImmune().clientTrackingRange(8).build(InvasionMod.MODID + ":imp"));
 
+    public static final RegistryObject<EntityType<IMVindicator>> VINDICATOR = ENTITIES.register("vindicator",
+            () -> EntityType.Builder.<IMVindicator>of(IMVindicator::new, MobCategory.MONSTER)
+                    .sized(0.6F, 1.95F).clientTrackingRange(8).build(InvasionMod.MODID + ":vindicator"));
+
+    public static final RegistryObject<EntityType<IMEvoker>> EVOKER = ENTITIES.register("evoker",
+            () -> EntityType.Builder.<IMEvoker>of(IMEvoker::new, MobCategory.MONSTER)
+                    .sized(0.6F, 1.95F).clientTrackingRange(8).build(InvasionMod.MODID + ":evoker"));
+
     public static final RegistryObject<EntityType<IMWolf>> WOLF = ENTITIES.register("wolf",
             () -> EntityType.Builder.<IMWolf>of(IMWolf::new, MobCategory.CREATURE)
                     .sized(0.6F, 0.85F).clientTrackingRange(10).build(InvasionMod.MODID + ":wolf"));
@@ -85,6 +95,8 @@ public final class ModEntities {
         event.put(THROWER.get(), IMThrower.createInvasionAttributes().build());
         event.put(IMP.get(), IMImp.createInvasionAttributes().build());
         event.put(WOLF.get(), IMWolf.createInvasionAttributes().build());
+        event.put(VINDICATOR.get(), IMVindicator.createInvasionAttributes().build());
+        event.put(EVOKER.get(), IMEvoker.createInvasionAttributes().build());
     }
 
     private ModEntities() {

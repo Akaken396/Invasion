@@ -35,6 +35,9 @@ public final class WaveBuilder {
         PATTERNS.put("thrower_t2", new EntityPattern(IMEntityType.THROWER).tier(2, 1));
         PATTERNS.put("creeper_t1_basic", new EntityPattern(IMEntityType.CREEPER).tier(1, 1));
         PATTERNS.put("imp_t1", new EntityPattern(IMEntityType.IMP).tier(1, 1));
+        PATTERNS.put("vindicator", new EntityPattern(IMEntityType.VINDICATOR).tier(1, 1));
+        PATTERNS.put("evoker", new EntityPattern(IMEntityType.EVOKER).tier(1, 1));
+        PATTERNS.put("pigengy_t2_warded", new EntityPattern(IMEntityType.PIG_ENGINEER).tier(2, 1));
     }
 
     public static EntityPattern pattern(String name) {
@@ -181,25 +184,46 @@ public final class WaveBuilder {
         }
     }
 
+    /** From the late-wave threshold on, zombies are replaced by illagers and warded engineers join the pig engineers. */
+    private static ISelect<EntityPattern> late(String name, boolean late) {
+        if (!late) {
+            return new SingleSelection<>(pattern(name));
+        }
+        if (name.startsWith("zombie_t")) {
+            return name.equals("zombie_t3_any")
+                    ? random().add(pattern("evoker"), 1).add(pattern("vindicator"), 1)
+                    : random().add(pattern("vindicator"), 3).add(pattern("evoker"), 1);
+        }
+        if (name.equals("pigengy_t1_any")) {
+            return random().add(pattern("pigengy_t1_any"), 1).add(pattern("pigengy_t2_warded"), 1);
+        }
+        return new SingleSelection<>(pattern(name));
+    }
+
     private static Wave extendedWave(int wave) {
+        boolean late = wave >= com.invasion.Config.LATE_WAVE_START.get();
         float mobScale = (float) Math.pow(1.09F, wave - 11);
+        if (late) {
+            // 23 = sum of the base amounts below; keep the whole wave under the cap.
+            mobScale = Math.min(mobScale, com.invasion.Config.MAX_WAVE_MOBS.get() / 23.0F);
+        }
         float timeScale = 1.0F + (wave - 11) * 0.04F;
         List<WaveEntry> e = new ArrayList<>();
-        RandomSelectionPool<EntityPattern> base = random().add(pattern("zombie_t1_any"), 1.5F).add(pattern("zombie_t2_any_basic"), 2.2F)
-                .add(pattern("zombie_t3_any"), 0.26F).add(pattern("zombiePigman_t1_any"), 0.8F).add(pattern("zombiePigman_t2_any"), 0.5F)
-                .add(pattern("zombiePigman_t3_any"), 0.054F).add(pattern("skeleton_t1_any"), 0.7F).add(pattern("thrower_t1"), 0.18F)
-                .add(pattern("thrower_t2"), 0.054F).add(pattern("creeper_t1_basic"), 0.054F).add(pattern("imp_t1"), 0.4F);
+        RandomSelectionPool<EntityPattern> base = random().addPool(late("zombie_t1_any", late), 1.5F).addPool(late("zombie_t2_any_basic", late), 2.2F)
+                .addPool(late("zombie_t3_any", late), 0.26F).addPool(late("zombiePigman_t1_any", late), 0.8F).addPool(late("zombiePigman_t2_any", late), 0.5F)
+                .addPool(late("zombiePigman_t3_any", late), 0.054F).addPool(late("skeleton_t1_any", late), 0.7F).addPool(late("thrower_t1", late), 0.18F)
+                .addPool(late("thrower_t2", late), 0.054F).addPool(late("creeper_t1_basic", late), 0.054F).addPool(late("imp_t1", late), 0.4F);
         e.add(new WaveEntry(0, (int) (timeScale * 30000), (int) (mobScale * 7), 2000, base, 45, 5));
         e.add(new WaveEntry(0, (int) (timeScale * 90000), (int) (mobScale * 3), 500,
-                finite().add(pattern("spider_t2_any"), 2).add(pattern("pigengy_t1_any"), 1)));
-        RandomSelectionPool<EntityPattern> burst = random().add(pattern("zombiePigman_t1_any"), 1.5F).add(pattern("zombiePigman_t2_any"), 0.7F)
-                .add(pattern("zombiePigman_t3_any"), 0.35F).add(pattern("zombie_t2_any_basic"), 1.5F).add(pattern("spider_t2_any"), 1)
-                .add(pattern("zombie_t1_any"), 1).add(pattern("skeleton_t1_any"), 1).add(pattern("thrower_t1"), 0.5F)
-                .add(pattern("thrower_t2"), 0.42F).add(pattern("zombie_t3_any"), 0.5F).add(pattern("creeper_t1_basic"), 0.42F)
-                .add(pattern("imp_t1"), 0.4F);
+                finite().addPool(late("spider_t2_any", late), 2).addPool(late("pigengy_t1_any", late), 1)));
+        RandomSelectionPool<EntityPattern> burst = random().addPool(late("zombiePigman_t1_any", late), 1.5F).addPool(late("zombiePigman_t2_any", late), 0.7F)
+                .addPool(late("zombiePigman_t3_any", late), 0.35F).addPool(late("zombie_t2_any_basic", late), 1.5F).addPool(late("spider_t2_any", late), 1)
+                .addPool(late("zombie_t1_any", late), 1).addPool(late("skeleton_t1_any", late), 1).addPool(late("thrower_t1", late), 0.5F)
+                .addPool(late("thrower_t2", late), 0.42F).addPool(late("zombie_t3_any", late), 0.5F).addPool(late("creeper_t1_basic", late), 0.42F)
+                .addPool(late("imp_t1", late), 0.4F);
         e.add(new WaveEntry((int) (timeScale * 65000), (int) (timeScale * 67000), (int) (mobScale * 7), 500, burst, 25, 3));
         e.add(new WaveEntry((int) (timeScale * 95000), (int) (timeScale * 97000), (int) (mobScale * 6), 500,
-                finite().add(pattern("zombie_t2_any_basic"), 2).add(pattern("zombie_t1_any"), 3).add(pattern("spider_t2_any"), 1), 45, 2));
+                finite().addPool(late("zombie_t2_any_basic", late), 2).addPool(late("zombie_t1_any", late), 3).addPool(late("spider_t2_any", late), 1), 45, 2));
         return new Wave((int) (timeScale * 120000), (int) (timeScale * 35000), e);
     }
 

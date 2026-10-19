@@ -8,5 +8,7 @@ public enum IMEntityType {
     PIG_ENGINEER,
     THROWER,
     IMP,
-    CREEPER
+    CREEPER,
+    VINDICATOR,
+    EVOKER
 }

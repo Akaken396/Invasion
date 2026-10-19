@@ -77,6 +77,9 @@ public final class ModItems {
     public static final RegistryObject<Item> SPIDER_T2_JUMPER_EGG = egg("spider_t2_jumper", ModEntities.SPIDER, IMEntityType.SPIDER, 2, 0, 4473191, 656168);
     public static final RegistryObject<Item> SPIDER_T2_MOTHER_EGG = egg("spider_t2_mother", ModEntities.SPIDER, IMEntityType.SPIDER, 2, 1, 4473191, 656168);
     public static final RegistryObject<Item> CREEPER_T1_EGG = egg("creeper_t1", ModEntities.CREEPER, IMEntityType.CREEPER, 1, 0, 2330399, 0xA5AAA6);
+    public static final RegistryObject<Item> WARDED_PIG_ENGINEER_T2_EGG = egg("warded_pig_engineer_t2", ModEntities.PIG_ENGINEER, IMEntityType.PIG_ENGINEER, 2, 0, 15505045, 0x5B2A86);
+    public static final RegistryObject<Item> VINDICATOR_EGG = egg("vindicator", ModEntities.VINDICATOR, IMEntityType.VINDICATOR, 1, 0, 0x959B9B, 0x275E61);
+    public static final RegistryObject<Item> EVOKER_EGG = egg("evoker", ModEntities.EVOKER, IMEntityType.EVOKER, 1, 0, 0x959B9B, 0x1E1C1A);
     public static final RegistryObject<Item> PIG_ENGINEER_T1_EGG = egg("pig_engineer_t1", ModEntities.PIG_ENGINEER, IMEntityType.PIG_ENGINEER, 1, 0, 15505045, 0x420000);
     public static final RegistryObject<Item> THROWER_T1_EGG = egg("thrower_t1", ModEntities.THROWER, IMEntityType.THROWER, 1, 0, 5529399, 1912126);
     public static final RegistryObject<Item> THROWER_T2_EGG = egg("thrower_t2", ModEntities.THROWER, IMEntityType.THROWER, 2, 0, 87046164, 6498312);

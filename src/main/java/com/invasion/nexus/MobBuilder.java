@@ -21,6 +21,8 @@ public final class MobBuilder {
             case THROWER -> ModEntities.THROWER.get();
             case IMP -> ModEntities.IMP.get();
             case CREEPER -> ModEntities.CREEPER.get();
+            case VINDICATOR -> ModEntities.VINDICATOR.get();
+            case EVOKER -> ModEntities.EVOKER.get();
         };
     }
 
