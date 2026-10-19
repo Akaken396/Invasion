@@ -123,8 +123,8 @@ public final class IronsSpellsCompat {
             return;
         }
         budgetUsed++;
-        int cooldown = castRandomSpell(level, mob, target);
-        int base = Math.max(Config.SPELL_CAST_INTERVAL.get() * 20, cooldown);
+        int spellCooldown = castRandomSpell(level, mob, target);
+        int base = Math.max(Config.SPELL_CAST_INTERVAL.get() * 20, spellCooldown);
         mob.getPersistentData().putInt(COOLDOWN_TAG, base + mob.getRandom().nextInt(base / 2 + 1));
     }
 
