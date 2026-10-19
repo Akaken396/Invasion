@@ -786,9 +786,6 @@ public class NexusBlockEntity extends BlockEntity implements MenuProvider {
     private void onWaveBegin(ServerLevel level) {
         int wave = currentWave;
         foreignToSpawn = 0;
-        if (com.invasion.nexus.LateWaveScaling.isGravityWave(wave)) {
-            messageBoundPlayers(Component.translatable("message.invasion.wave.gravity").withStyle(ChatFormatting.DARK_AQUA));
-        }
         if (com.invasion.nexus.LateWaveScaling.isSpellWave(wave) && com.invasion.compat.IronsSpellsCompat.isLoaded()) {
             messageBoundPlayers(Component.translatable("message.invasion.wave.spell").withStyle(ChatFormatting.LIGHT_PURPLE));
         }
@@ -811,33 +808,6 @@ public class NexusBlockEntity extends BlockEntity implements MenuProvider {
             } else if (aliveEstimate < Config.MAX_ALIVE_MOBS.get()
                     && com.invasion.nexus.ForeignInvaders.spawn(level, this, types.get(level.random.nextInt(types.size())), currentWave)) {
                 foreignToSpawn--;
-            }
-        }
-        if (com.invasion.nexus.LateWaveScaling.isGravityWave(currentWave) && level.getGameTime() % 20 == 0) {
-            applyGravity(level);
-        }
-    }
-
-    /** Gravity wave: no flying near the Nexus (Ars Nouveau gravity when installed, plus a plain flight ban). */
-    private void applyGravity(ServerLevel level) {
-        net.minecraft.world.effect.MobEffect gravity = net.minecraftforge.registries.ForgeRegistries.MOB_EFFECTS
-                .getValue(ResourceLocation.fromNamespaceAndPath("ars_nouveau", "gravity"));
-        if (gravity != null && "minecraft".equals(net.minecraftforge.registries.ForgeRegistries.MOB_EFFECTS.getKey(gravity).getNamespace())) {
-            gravity = null;
-        }
-        for (Player player : level.getEntitiesOfClass(Player.class, boundingBoxToRadius())) {
-            if (player.isCreative() || player.isSpectator()) {
-                continue;
-            }
-            if (gravity != null) {
-                player.addEffect(new net.minecraft.world.effect.MobEffectInstance(gravity, 600, 0, false, true));
-            }
-            if (player.getAbilities().flying) {
-                player.getAbilities().flying = false;
-                player.onUpdateAbilities();
-            }
-            if (player.isFallFlying()) {
-                player.stopFallFlying();
             }
         }
     }

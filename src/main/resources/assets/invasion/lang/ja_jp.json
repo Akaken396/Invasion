@@ -139,7 +139,6 @@
   "item.invasion.evoker_spawn_egg": "IMエヴォーカー のスポーンエッグ",
   "entity.invasion.vindicator": "IMヴィンディケーター",
   "entity.invasion.evoker": "IMエヴォーカー",
-  "message.invasion.wave.gravity": "重力ウェーブ！ ネクサス周辺では飛行できない。",
   "message.invasion.wave.spell": "スペルウェーブ！ すべての侵略者が魔法を操る。",
   "message.invasion.wave.foreign": "異界の生物たちが侵略に加わった！",
   "message.invasion.wave.power": "侵略者がさらに強くなった！（強化段階 %s）"

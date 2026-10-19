@@ -139,7 +139,6 @@
   "item.invasion.evoker_spawn_egg": "IM Evoker Spawn Egg",
   "entity.invasion.vindicator": "IM Vindicator",
   "entity.invasion.evoker": "IM Evoker",
-  "message.invasion.wave.gravity": "Gravity wave! Flight is disabled near the nexus.",
   "message.invasion.wave.spell": "Spell wave! Every invader wields magic.",
   "message.invasion.wave.foreign": "Strange creatures from other worlds join the invasion!",
   "message.invasion.wave.power": "The invaders grow stronger! (Power step %s)"

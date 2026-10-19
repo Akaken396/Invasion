@@ -46,11 +46,6 @@ public final class LateWaveScaling {
         return n > 0 && wave > 0 && wave % n == 0;
     }
 
-    public static boolean isGravityWave(int wave) {
-        int n = Config.GRAVITY_WAVE_INTERVAL.get();
-        return n > 0 && wave > 0 && wave % n == 0;
-    }
-
     public static boolean isForeignWave(int wave) {
         int n = Config.FOREIGN_WAVE_INTERVAL.get();
         return n > 0 && wave > 0 && wave % n == 0;

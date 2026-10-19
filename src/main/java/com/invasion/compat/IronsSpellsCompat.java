@@ -38,6 +38,9 @@ public final class IronsSpellsCompat {
     private static Method onServerPreCast;
     private static Method onCast;
     private static Method onServerCastComplete;
+    private static Method getSpellCooldown;
+    private static long budgetSecond = -1;
+    private static int budgetUsed;
     private static Object castSourceMob;
     private static final Set<String> BROKEN = new HashSet<>();
 
@@ -67,6 +70,11 @@ public final class IronsSpellsCompat {
             onServerPreCast = spell.getMethod("onServerPreCast", Level.class, int.class, LivingEntity.class, magicData);
             onCast = spell.getMethod("onCast", Level.class, int.class, LivingEntity.class, castSource, magicData);
             onServerCastComplete = spell.getMethod("onServerCastComplete", Level.class, int.class, LivingEntity.class, magicData, boolean.class);
+            try {
+                getSpellCooldown = spell.getMethod("getSpellCooldown");
+            } catch (NoSuchMethodException e) {
+                getSpellCooldown = null;
+            }
             for (Object constant : castSource.getEnumConstants()) {
                 if (((Enum<?>) constant).name().equals("MOB")) {
                     castSourceMob = constant;
@@ -82,7 +90,8 @@ public final class IronsSpellsCompat {
 
     public static void makeCaster(Mob mob) {
         mob.getPersistentData().putBoolean(CASTER_TAG, true);
-        mob.getPersistentData().putInt(COOLDOWN_TAG, 40 + mob.getRandom().nextInt(60));
+        int delay = Config.SPELL_FIRST_DELAY.get() * 20;
+        mob.getPersistentData().putInt(COOLDOWN_TAG, delay + mob.getRandom().nextInt(delay + 1));
     }
 
     public static boolean isCaster(LivingEntity entity) {
@@ -104,11 +113,23 @@ public final class IronsSpellsCompat {
                 || !mob.hasLineOfSight(target)) {
             return;
         }
-        mob.getPersistentData().putInt(COOLDOWN_TAG, Config.SPELL_CAST_INTERVAL.get() * 20);
-        castRandomSpell(level, mob, target);
+        // Shared budget: only a few spells per second from all invaders together.
+        long second = level.getGameTime() / 20L;
+        if (second != budgetSecond) {
+            budgetSecond = second;
+            budgetUsed = 0;
+        }
+        if (budgetUsed >= Config.MAX_SPELLS_PER_SECOND.get()) {
+            return;
+        }
+        budgetUsed++;
+        int cooldown = castRandomSpell(level, mob, target);
+        int base = Math.max(Config.SPELL_CAST_INTERVAL.get() * 20, cooldown);
+        mob.getPersistentData().putInt(COOLDOWN_TAG, base + mob.getRandom().nextInt(base / 2 + 1));
     }
 
-    private static void castRandomSpell(ServerLevel level, Mob mob, LivingEntity target) {
+    /** @return the spell's own cooldown in ticks (0 if unknown) */
+    private static int castRandomSpell(ServerLevel level, Mob mob, LivingEntity target) {
         try {
             List<?> all = (List<?>) getEnabledSpells.invoke(null);
             List<Object> usable = new ArrayList<>();
@@ -121,16 +142,20 @@ public final class IronsSpellsCompat {
                 }
             }
             if (usable.isEmpty()) {
-                return;
+                return 0;
             }
             Object spell = usable.get(level.random.nextInt(usable.size()));
             int min = Math.max(1, (Integer) getMinLevel.invoke(spell));
             int max = Math.max(min, (Integer) getMaxLevel.invoke(spell));
             int spellLevel = min + level.random.nextInt(max - min + 1);
             cast(level, mob, target, spell, spellLevel);
+            if (getSpellCooldown != null && getSpellCooldown.invoke(spell) instanceof Number ticks) {
+                return ticks.intValue();
+            }
         } catch (ReflectiveOperationException | RuntimeException | LinkageError e) {
             LOGGER.debug("Invader spell selection failed", e);
         }
+        return 0;
     }
 
     private static void cast(ServerLevel level, Mob mob, LivingEntity target, Object spell, int spellLevel) {

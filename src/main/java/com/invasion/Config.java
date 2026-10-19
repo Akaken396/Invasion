@@ -22,6 +22,8 @@ public final class Config {
     public static final ForgeConfigSpec.DoubleValue LATE_DAMAGE_PER_WAVE;
     public static final ForgeConfigSpec.DoubleValue SPELL_CASTER_CHANCE;
     public static final ForgeConfigSpec.IntValue SPELL_CAST_INTERVAL;
+    public static final ForgeConfigSpec.IntValue SPELL_FIRST_DELAY;
+    public static final ForgeConfigSpec.IntValue MAX_SPELLS_PER_SECOND;
     public static final ForgeConfigSpec.ConfigValue<java.util.List<? extends String>> SPELL_BLACKLIST;
 
     // Special waves
@@ -30,7 +32,6 @@ public final class Config {
     public static final ForgeConfigSpec.IntValue ENGINEER_TOWER_DISTANCE;
     public static final ForgeConfigSpec.DoubleValue WARD_CHANCE;
     public static final ForgeConfigSpec.DoubleValue WARD_CHANCE_LATE;
-    public static final ForgeConfigSpec.IntValue GRAVITY_WAVE_INTERVAL;
     public static final ForgeConfigSpec.IntValue SPELL_WAVE_INTERVAL;
     public static final ForgeConfigSpec.IntValue FOREIGN_WAVE_INTERVAL;
     public static final ForgeConfigSpec.IntValue FOREIGN_MOBS_BASE;
@@ -104,8 +105,13 @@ public final class Config {
                 .defineInRange("damagePerWave", 0.03D, 0.0D, 100.0D);
         SPELL_CASTER_CHANCE = BUILDER.comment("Share of late-wave mobs that cast random Iron's Spells 'n Spellbooks spells (needs that mod).")
                 .defineInRange("spellCasterChance", 0.1D, 0.0D, 1.0D);
-        SPELL_CAST_INTERVAL = BUILDER.comment("Seconds between two spells of a caster.")
-                .defineInRange("spellCastInterval", 6, 1, 600);
+        SPELL_CAST_INTERVAL = BUILDER.comment("Cooldown in seconds after a caster casts a spell (randomly up to 50% longer).",
+                        "If the spell's own cooldown in Iron's Spells is longer, that one is used.")
+                .defineInRange("spellCooldownSeconds", 20, 1, 3600);
+        SPELL_FIRST_DELAY = BUILDER.comment("Seconds after spawning before a caster may cast its first spell (randomly up to twice as long).")
+                .defineInRange("spellFirstDelaySeconds", 10, 0, 3600);
+        MAX_SPELLS_PER_SECOND = BUILDER.comment("Maximum number of spells cast by all invaders together per second (also in spell waves).")
+                .defineInRange("maxSpellsPerSecond", 2, 1, 1000);
         SPELL_BLACKLIST = BUILDER.comment("Spells that invaders never cast.")
                 .defineList("spellBlacklist", java.util.List.of(
                         "irons_spellbooks:none", "irons_spellbooks:recall", "irons_spellbooks:portal", "irons_spellbooks:planar_sight",
@@ -126,9 +132,6 @@ public final class Config {
                 .defineInRange("wardChance", 0.05D, 0.0D, 1.0D);
         WARD_CHANCE_LATE = BUILDER.comment("Chance for an invader to be warded against magic from lateWaveStart on.")
                 .defineInRange("wardChanceLate", 0.2D, 0.0D, 1.0D);
-        GRAVITY_WAVE_INTERVAL = BUILDER.comment("Every N waves: gravity wave, flight is disabled for players near the Nexus",
-                        "(Ars Nouveau gravity effect when installed). 0 = off.")
-                .defineInRange("gravityWaveInterval", 5, 0, 1000);
         SPELL_WAVE_INTERVAL = BUILDER.comment("Every N waves: every invader casts Iron's Spells 'n Spellbooks spells. 0 = off.")
                 .defineInRange("spellWaveInterval", 10, 0, 1000);
         FOREIGN_WAVE_INTERVAL = BUILDER.comment("Every N waves: mobs of other mods (non-boss mobs of All the Mods 9) join the wave. 0 = off.")
