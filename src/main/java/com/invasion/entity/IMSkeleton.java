@@ -28,6 +28,12 @@ import org.jetbrains.annotations.Nullable;
 
 /** Skeleton archer that shoots at defenders on its way to the Nexus. */
 public class IMSkeleton extends Skeleton implements InvasionMob {
+    /** Invaders are allies: Iron's Spells and vanilla targeting skip allied mobs. */
+    @Override
+    public boolean isAlliedTo(net.minecraft.world.entity.Entity other) {
+        return InvasionAllies.areAllies(this, other) || super.isAlliedTo(other);
+    }
+
     private final NexusLink link = new NexusLink();
 
     public IMSkeleton(EntityType<? extends Skeleton> type, Level level) {

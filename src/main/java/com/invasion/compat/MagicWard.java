@@ -91,32 +91,70 @@ public final class MagicWard {
         }
     }
 
+    /** Black holes and gusts that exist right now (tracked on spawn, so no area search per mob). */
+    private static final java.util.List<Entity> PULLS = new java.util.concurrent.CopyOnWriteArrayList<>();
+
+    @SubscribeEvent
+    public static void onJoin(net.minecraftforge.event.entity.EntityJoinLevelEvent event) {
+        if (!event.getLevel().isClientSide
+                && PULLING_SPELLS.contains(String.valueOf(ForgeRegistries.ENTITY_TYPES.getKey(event.getEntity().getType())))) {
+            PULLS.add(event.getEntity());
+        }
+    }
+
+    @SubscribeEvent
+    public static void onLeave(net.minecraftforge.event.entity.EntityLeaveLevelEvent event) {
+        if (!event.getLevel().isClientSide) {
+            PULLS.remove(event.getEntity());
+        }
+    }
+
+    /**
+     * Whether the entity is caught by a pulling spell it should ignore: any one for warded
+     * mobs, and those cast by invaders for every invader (no friendly fire).
+     */
+    private static boolean caughtByPull(LivingEntity entity, boolean warded, boolean invader) {
+        for (Entity pull : PULLS) {
+            if (!pull.isAlive() || pull.level() != entity.level()) {
+                PULLS.remove(pull);
+                continue;
+            }
+            if (pull.distanceToSqr(entity) < 20.0D * 20.0D
+                    && (warded || (invader && com.invasion.entity.InvasionAllies.isInvaderSide(pull)))) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     /** Undo motion forced on the mob by spells: strong pushes and pulls are clamped back to walking speed. */
     @SubscribeEvent
     public static void onTick(LivingEvent.LivingTickEvent event) {
         LivingEntity entity = event.getEntity();
-        if (entity.level().isClientSide || !isWarded(entity)) {
+        if (entity.level().isClientSide) {
+            return;
+        }
+        boolean warded = isWarded(entity);
+        if (!warded && (PULLS.isEmpty() || !com.invasion.entity.InvasionAllies.isInvader(entity))) {
             return;
         }
         Vec3 motion = entity.getDeltaMovement();
-        double horizontal = Math.sqrt(motion.x * motion.x + motion.z * motion.z);
-        boolean nearMagic = entity.tickCount % 5 == 0 && !entity.level().getEntities(entity, entity.getBoundingBox().inflate(16.0D),
-                other -> PULLING_SPELLS.contains(String.valueOf(ForgeRegistries.ENTITY_TYPES.getKey(other.getType())))).isEmpty();
-        if (nearMagic) {
-            entity.getPersistentData().putInt(TAG + "Near", 6);
-        }
-        int near = entity.getPersistentData().getInt(TAG + "Near");
-        if (near > 0) {
-            entity.getPersistentData().putInt(TAG + "Near", near - 1);
-            // Inside a black hole / gust: drop all motion that the mob did not make itself this tick.
+        if (!PULLS.isEmpty() && caughtByPull(entity, warded, true)) {
+            // Inside a black hole / gust: drop the motion it forced on the mob.
             entity.setDeltaMovement(0.0D, Math.min(motion.y, 0.0D), 0.0D);
-        } else if (horizontal > MAX_HORIZONTAL || (motion.y > MAX_UP && !entity.onClimbable() && !entity.isInWater())) {
+            return;
+        }
+        if (!warded) {
+            return;
+        }
+        double horizontal = Math.sqrt(motion.x * motion.x + motion.z * motion.z);
+        if (horizontal > MAX_HORIZONTAL || (motion.y > MAX_UP && !entity.onClimbable() && !entity.isInWater())) {
             double scale = horizontal > MAX_HORIZONTAL ? MAX_HORIZONTAL / horizontal : 1.0D;
             entity.setDeltaMovement(motion.x * scale, Math.min(motion.y, MAX_UP), motion.z * scale);
         }
-        if (entity.tickCount % 40 == 0 && entity.level() instanceof ServerLevel level) {
+        if (entity.tickCount % 80 == 0 && entity.level() instanceof ServerLevel level) {
             level.sendParticles(ParticleTypes.WAX_ON, entity.getX(), entity.getY() + entity.getBbHeight() * 0.6D, entity.getZ(),
-                    3, 0.3D, 0.4D, 0.3D, 0.0D);
+                    2, 0.3D, 0.4D, 0.3D, 0.0D);
         }
     }
 

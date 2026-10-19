@@ -212,6 +212,39 @@ public class NexusBlockEntity extends BlockEntity implements MenuProvider {
         return Vec3.atCenterOf(worldPosition);
     }
 
+    // ------------------------------------------------------------------
+    // Ladders at the foot of the towers built by pigman engineers
+
+    private final java.util.List<BlockPos> accessPoints = new java.util.ArrayList<>();
+
+    public void addAccessPoint(BlockPos pos) {
+        if (!accessPoints.contains(pos)) {
+            accessPoints.add(pos.immutable());
+            if (accessPoints.size() > 16) {
+                accessPoints.remove(0);
+            }
+        }
+    }
+
+    /** Nearest tower ladder (bottom rung) within range that still exists. */
+    @Nullable
+    public BlockPos nearestAccessPoint(Vec3 from, double range) {
+        if (level == null) {
+            return null;
+        }
+        accessPoints.removeIf(p -> level.isLoaded(p) && !level.getBlockState(p).is(net.minecraft.world.level.block.Blocks.LADDER));
+        BlockPos best = null;
+        double bestDist = range * range;
+        for (BlockPos p : accessPoints) {
+            double d = Vec3.atBottomCenterOf(p).distanceToSqr(from);
+            if (d < bestDist) {
+                bestDist = d;
+                best = p;
+            }
+        }
+        return best;
+    }
+
     private AABB boundingBoxToRadius() {
         int r = getSpawnRadius() + 10;
         int v = getSpawnRadius() + 40;

@@ -27,6 +27,12 @@ import org.jetbrains.annotations.Nullable;
 
 /** Creeper that blows itself up to breach walls standing between it and the Nexus. */
 public class IMCreeper extends Creeper implements InvasionMob {
+    /** Invaders are allies: Iron's Spells and vanilla targeting skip allied mobs. */
+    @Override
+    public boolean isAlliedTo(net.minecraft.world.entity.Entity other) {
+        return InvasionAllies.areAllies(this, other) || super.isAlliedTo(other);
+    }
+
     private final NexusLink link = new NexusLink();
     private boolean commitToExplode;
 

@@ -27,6 +27,7 @@ public final class Config {
     // Special waves
     public static final ForgeConfigSpec.IntValue ENGINEERS_BASE;
     public static final ForgeConfigSpec.IntValue ENGINEERS_MAX;
+    public static final ForgeConfigSpec.IntValue ENGINEER_TOWER_DISTANCE;
     public static final ForgeConfigSpec.DoubleValue WARD_CHANCE;
     public static final ForgeConfigSpec.DoubleValue WARD_CHANCE_LATE;
     public static final ForgeConfigSpec.IntValue GRAVITY_WAVE_INTERVAL;
@@ -118,6 +119,9 @@ public final class Config {
                 .defineInRange("engineersBase", 1, 0, 1000);
         ENGINEERS_MAX = BUILDER.comment("Maximum number of extra pigman engineers per wave.")
                 .defineInRange("engineersMax", 30, 0, 1000);
+        ENGINEER_TOWER_DISTANCE = BUILDER.comment("When the Nexus is above them and out of reach, pigman engineers stop this far from it (horizontally),",
+                        "build a tower with a ladder up to the height of the Nexus and then a bridge across to it. 0 = off.")
+                .defineInRange("engineerTowerDistance", 10, 0, 64);
         WARD_CHANCE = BUILDER.comment("Chance for an invader to be warded against magic (Iron's Spells / Ars Nouveau) before the late waves.")
                 .defineInRange("wardChance", 0.05D, 0.0D, 1.0D);
         WARD_CHANCE_LATE = BUILDER.comment("Chance for an invader to be warded against magic from lateWaveStart on.")

@@ -19,6 +19,12 @@ import org.jetbrains.annotations.Nullable;
 
 /** Evoker invader of the late waves (replaces zombies from the late-wave threshold on). */
 public class IMEvoker extends Evoker implements InvasionMob {
+    /** Invaders are allies: Iron's Spells and vanilla targeting skip allied mobs. */
+    @Override
+    public boolean isAlliedTo(net.minecraft.world.entity.Entity other) {
+        return InvasionAllies.areAllies(this, other) || super.isAlliedTo(other);
+    }
+
     private final NexusLink link = new NexusLink();
 
     public IMEvoker(EntityType<? extends Evoker> type, Level level) {

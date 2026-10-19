@@ -33,6 +33,9 @@ public class NexusAttackGoal<T extends PathfinderMob & InvasionMob> extends Goal
     private int stuckSeconds;
     private double lastDistance = Double.MAX_VALUE;
     private int localTicks;
+    /** Bottom rung of a tower ladder built by a pigman engineer, while climbing it. */
+    private BlockPos climbPoint;
+    private int climbTicks;
 
     public NexusAttackGoal(T mob, double speed) {
         this.mob = mob;
@@ -47,7 +50,7 @@ public class NexusAttackGoal<T extends PathfinderMob & InvasionMob> extends Goal
 
     @Override
     public boolean canUse() {
-        return mob.getTarget() == null && nexus() != null;
+        return mob.getTarget() == null && !mob.isBusy() && nexus() != null;
     }
 
     @Override
@@ -65,6 +68,7 @@ public class NexusAttackGoal<T extends PathfinderMob & InvasionMob> extends Goal
         repathCooldown = 0;
         stuckSeconds = 0;
         lastDistance = Double.MAX_VALUE;
+        climbPoint = null;
         attackCooldown = mob.getNexusAttackInterval();
     }
 
@@ -109,6 +113,10 @@ public class NexusAttackGoal<T extends PathfinderMob & InvasionMob> extends Goal
             return;
         }
 
+        if (climbPoint != null && climbTower(nexusPos)) {
+            return;
+        }
+
         if (mob.isInWater() || mob.isInLava()) {
             swimTowards(center);
         }
@@ -127,12 +135,65 @@ public class NexusAttackGoal<T extends PathfinderMob & InvasionMob> extends Goal
             lastDistance = distance;
         }
 
+        if (stuckSeconds >= 2 && nexusPos.getY() - mob.getY() >= 2.0D) {
+            BlockPos ladder = nexus.nearestAccessPoint(mob.position(), 48.0D);
+            if (ladder != null) {
+                climbPoint = ladder;
+                climbTicks = 0;
+                stuckSeconds = 0;
+                lastDistance = Double.MAX_VALUE;
+                return;
+            }
+        }
+
         if (stuckSeconds >= 3) {
             if (mob.handleObstacle(nexusPos) || tryDig(nexusPos)) {
                 stuckSeconds = 0;
                 lastDistance = Double.MAX_VALUE;
             }
         }
+    }
+
+    /**
+     * Walks to the ladder of an engineer tower and climbs it to the height of the Nexus;
+     * from the top the bridge leads to the Nexus.
+     *
+     * @return true while still busy with the tower
+     */
+    private boolean climbTower(BlockPos nexusPos) {
+        BlockPos ladder = climbPoint;
+        net.minecraft.world.level.block.state.BlockState state = mob.level().getBlockState(ladder);
+        if (!state.is(net.minecraft.world.level.block.Blocks.LADDER) || ++climbTicks > 600) {
+            climbPoint = null;
+            return false;
+        }
+        if (mob.getY() >= nexusPos.getY() - 0.01D && mob.onGround() && !mob.onClimbable()) {
+            // On top of the tower: walk over the bridge.
+            climbPoint = null;
+            repathCooldown = 0;
+            stuckSeconds = 0;
+            lastDistance = Double.MAX_VALUE;
+            return false;
+        }
+        Direction tower = state.getValue(net.minecraft.world.level.block.LadderBlock.FACING).getOpposite();
+        double dx = ladder.getX() + 0.5D - mob.getX();
+        double dz = ladder.getZ() + 0.5D - mob.getZ();
+        boolean atLadder = dx * dx + dz * dz < 1.0D && mob.getY() >= ladder.getY() - 0.5D;
+        if (!atLadder && !mob.onClimbable()) {
+            if (climbTicks % 20 == 1) {
+                mob.getNavigation().moveTo(ladder.getX() + 0.5D, ladder.getY(), ladder.getZ() + 0.5D, speed);
+            }
+            return true;
+        }
+        // Push against the tower: mobs on a ladder that walk into a wall climb it.
+        mob.getNavigation().stop();
+        mob.getMoveControl().setWantedPosition(ladder.getX() + 0.5D + tower.getStepX(), mob.getY(),
+                ladder.getZ() + 0.5D + tower.getStepZ(), speed);
+        if (mob.onClimbable()) {
+            Vec3 motion = mob.getDeltaMovement();
+            mob.setDeltaMovement(motion.x, Math.max(motion.y, 0.2D), motion.z);
+        }
+        return true;
     }
 
     /**

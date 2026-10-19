@@ -25,6 +25,11 @@ public interface InvasionMob {
         return 40;
     }
 
+    /** True while the mob does its own thing (building a tower...) and should not walk to the Nexus. */
+    default boolean isBusy() {
+        return false;
+    }
+
     default boolean canDig() {
         return false;
     }

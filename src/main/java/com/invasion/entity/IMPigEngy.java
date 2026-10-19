@@ -38,8 +38,23 @@ import net.minecraft.world.level.block.state.BlockState;
 public class IMPigEngy extends InvasionMonster {
     private static final int MAX_LADDER = 12;
     private static final String SPELL_MOD = "irons_spellbooks";
+    private static final int MAX_TOWER = 48;
+    private static final int MAX_BRIDGE = 96;
+    private static final int MODE_NONE = 0;
+    private static final int MODE_RETREAT = 1;
+    private static final int MODE_TOWER = 2;
+    private static final int MODE_BRIDGE = 3;
     private int buildCooldown;
     private boolean selfMoving;
+    private int buildMode = MODE_NONE;
+    private int modeTicks;
+    private int towerSteps;
+    private int blockedWaits;
+    private int towerCheckCooldown;
+    private boolean ladderRegistered;
+    private Direction awayDir = Direction.NORTH;
+    @org.jetbrains.annotations.Nullable
+    private Vec3 anchor;
 
     public IMPigEngy(EntityType<? extends IMPigEngy> type, Level level) {
         super(type, level);
@@ -68,19 +83,255 @@ public class IMPigEngy extends InvasionMonster {
 
     @Override
     public void aiStep() {
+        boolean anchored = !level().isClientSide && anchor != null && (buildMode == MODE_TOWER || buildMode == MODE_BRIDGE);
+        if (anchored) {
+            getNavigation().stop();
+        }
         selfMoving = true;
         try {
             super.aiStep();
+            if (!level().isClientSide) {
+                if (anchored && anchor != null) {
+                    // Stay on top of the tower / bridge while building.
+                    setPos(anchor.x, getY(), anchor.z);
+                    setDeltaMovement(0.0D, getDeltaMovement().y, 0.0D);
+                }
+                tickTowerBuilding();
+            }
         } finally {
             selfMoving = false;
         }
         if (buildCooldown > 0) {
             buildCooldown--;
         }
-        if (!level().isClientSide && tickCount % 4 == 0 && buildCooldown <= 0 && getTarget() == null && onGround()
-                && link.hasNexus() && level().getGameRules().getBoolean(GameRules.RULE_MOBGRIEFING)) {
+        if (!level().isClientSide && buildMode == MODE_NONE && tickCount % 4 == 0 && buildCooldown <= 0 && getTarget() == null
+                && onGround() && link.hasNexus() && level().getGameRules().getBoolean(GameRules.RULE_MOBGRIEFING)) {
             bridgeAhead();
         }
+    }
+
+    // ------------------------------------------------------------------
+    // Tower and bridge: when the Nexus is above and out of reach, stop some way off
+    // (not under the Nexus, where the other invaders crowd), build a tower with a
+    // ladder up to the height of the Nexus, then a bridge across to it.
+
+    @Override
+    public boolean isBusy() {
+        return buildMode != MODE_NONE;
+    }
+
+    private double horizontalDistance(BlockPos pos) {
+        double dx = pos.getX() + 0.5D - getX();
+        double dz = pos.getZ() + 0.5D - getZ();
+        return Math.sqrt(dx * dx + dz * dz);
+    }
+
+    private void setMode(int mode) {
+        buildMode = mode;
+        modeTicks = 0;
+    }
+
+    private void stopBuilding(int cooldown) {
+        setMode(MODE_NONE);
+        anchor = null;
+        towerSteps = 0;
+        blockedWaits = 0;
+        towerCheckCooldown = cooldown;
+    }
+
+    private void tickTowerBuilding() {
+        int distance = Config.ENGINEER_TOWER_DISTANCE.get();
+        BlockPos nexusPos = link.getNexusPos();
+        if (distance <= 0 || nexusPos == null || getTarget() != null || isInWater() || isInLava()
+                || !level().getGameRules().getBoolean(GameRules.RULE_MOBGRIEFING)) {
+            if (buildMode != MODE_NONE) {
+                stopBuilding(40);
+            }
+            return;
+        }
+        modeTicks++;
+        switch (buildMode) {
+            case MODE_RETREAT -> retreat(nexusPos, distance);
+            case MODE_TOWER -> {
+                if (modeTicks % 5 == 0) {
+                    towerStep(nexusPos);
+                }
+            }
+            case MODE_BRIDGE -> {
+                if (modeTicks % 5 == 0) {
+                    bridgeStep(nexusPos);
+                }
+            }
+            default -> {
+                if (towerCheckCooldown > 0) {
+                    towerCheckCooldown--;
+                } else {
+                    towerCheckCooldown = 20;
+                    considerTower(nexusPos, distance);
+                }
+            }
+        }
+    }
+
+    private void considerTower(BlockPos nexusPos, int distance) {
+        if (!onGround()) {
+            return;
+        }
+        int dy = nexusPos.getY() - blockPosition().getY();
+        double horizontal = horizontalDistance(nexusPos);
+        if (dy < 2 || horizontal > distance + 2) {
+            return;
+        }
+        net.minecraft.world.level.pathfinder.Path path = getNavigation().createPath(nexusPos, 1);
+        if (path != null && path.canReach()) {
+            return;
+        }
+        if (horizontal < Math.max(3, distance - 4)) {
+            setMode(MODE_RETREAT);
+        } else {
+            startTower(nexusPos);
+        }
+    }
+
+    /** Too close to (under) the Nexus: walk back out to the tower distance first. */
+    private void retreat(BlockPos nexusPos, int distance) {
+        double horizontal = horizontalDistance(nexusPos);
+        if (horizontal >= distance - 1 || modeTicks > 160) {
+            if (onGround()) {
+                startTower(nexusPos);
+            }
+            return;
+        }
+        if (modeTicks % 20 == 1) {
+            double dx = getX() - (nexusPos.getX() + 0.5D);
+            double dz = getZ() - (nexusPos.getZ() + 0.5D);
+            double len = Math.sqrt(dx * dx + dz * dz);
+            if (len < 0.1D) {
+                double angle = random.nextDouble() * Math.PI * 2.0D;
+                dx = Math.cos(angle);
+                dz = Math.sin(angle);
+                len = 1.0D;
+            }
+            getNavigation().moveTo(nexusPos.getX() + 0.5D + dx / len * distance, getY(), nexusPos.getZ() + 0.5D + dz / len * distance, 1.1D);
+        }
+    }
+
+    private void startTower(BlockPos nexusPos) {
+        getNavigation().stop();
+        BlockPos feet = blockPosition();
+        anchor = Vec3.atBottomCenterOf(feet);
+        Direction away = Direction.getNearest(getX() - (nexusPos.getX() + 0.5D), 0.0D, getZ() - (nexusPos.getZ() + 0.5D));
+        awayDir = away.getAxis().isVertical() ? Direction.NORTH : away;
+        ladderRegistered = false;
+        towerSteps = 0;
+        blockedWaits = 0;
+        setMode(MODE_TOWER);
+    }
+
+    private void towerStep(BlockPos nexusPos) {
+        Level level = level();
+        BlockPos feet = blockPosition();
+        if (feet.getY() >= nexusPos.getY()) {
+            towerSteps = 0;
+            setMode(MODE_BRIDGE);
+            return;
+        }
+        if (!onGround()) {
+            return;
+        }
+        if (++towerSteps > MAX_TOWER || !level.getBlockState(feet).canBeReplaced()) {
+            stopBuilding(200);
+            return;
+        }
+        BlockPos head = feet.above(2);
+        if (!level.getBlockState(head).canBeReplaced()) {
+            if (!clearSoftBlock(head)) {
+                stopBuilding(200);
+            }
+            return;
+        }
+        // Wait until no other mob stands in the spot of the next tower block.
+        if (!level.getEntities(this, new net.minecraft.world.phys.AABB(feet),
+                e -> e instanceof net.minecraft.world.entity.LivingEntity && e.isAlive()).isEmpty()) {
+            towerSteps--;
+            if (++blockedWaits > 20) {
+                stopBuilding(100);
+            }
+            return;
+        }
+        blockedWaits = 0;
+        moveTo(anchor.x, feet.getY() + 1.0D, anchor.z);
+        level.setBlockAndUpdate(feet, Blocks.OAK_PLANKS.defaultBlockState());
+        BlockPos ladderPos = feet.relative(awayDir);
+        if (level.getBlockState(ladderPos).canBeReplaced() && level.getFluidState(ladderPos).isEmpty()) {
+            level.setBlockAndUpdate(ladderPos, Blocks.LADDER.defaultBlockState().setValue(LadderBlock.FACING, awayDir));
+            if (!ladderRegistered) {
+                ladderRegistered = true;
+                com.invasion.blockentity.NexusBlockEntity nexus = link.getNexus(level);
+                if (nexus != null) {
+                    nexus.addAccessPoint(ladderPos);
+                }
+            }
+        }
+        placeEffects(feet);
+    }
+
+    private void bridgeStep(BlockPos nexusPos) {
+        Level level = level();
+        if (!onGround()) {
+            return;
+        }
+        if (++towerSteps > MAX_BRIDGE || horizontalDistance(nexusPos) <= 1.5D) {
+            stopBuilding(100);
+            return;
+        }
+        BlockPos feet = blockPosition();
+        Direction dir = Direction.getNearest(nexusPos.getX() + 0.5D - getX(), 0.0D, nexusPos.getZ() + 0.5D - getZ());
+        if (dir.getAxis().isVertical()) {
+            stopBuilding(100);
+            return;
+        }
+        BlockPos front = feet.relative(dir);
+        for (BlockPos pos : new BlockPos[]{front.below(), front, front.above()}) {
+            if (pos.equals(nexusPos)) {
+                // Arrived: the Nexus attack goal takes over.
+                stopBuilding(100);
+                return;
+            }
+        }
+        for (BlockPos pos : new BlockPos[]{front, front.above()}) {
+            if (!level.getBlockState(pos).canBeReplaced()) {
+                if (!clearSoftBlock(pos)) {
+                    stopBuilding(100);
+                }
+                return;
+            }
+        }
+        BlockPos floor = front.below();
+        if (level.getBlockState(floor).canBeReplaced()) {
+            level.setBlockAndUpdate(floor, Blocks.OAK_PLANKS.defaultBlockState());
+            placeEffects(floor);
+        }
+        moveTo(front.getX() + 0.5D, feet.getY(), front.getZ() + 0.5D);
+        anchor = Vec3.atBottomCenterOf(front);
+    }
+
+    /** Breaks soft blocks (dirt, stone, wood...) in the way; harder ones are left to normal digging. */
+    private boolean clearSoftBlock(BlockPos pos) {
+        Level level = level();
+        BlockState state = level.getBlockState(pos);
+        float hardness = state.getDestroySpeed(level, pos);
+        if (hardness < 0.0F || hardness > 3.0F || level.getBlockEntity(pos) != null) {
+            return false;
+        }
+        level.destroyBlock(pos, Config.DESTROYED_BLOCKS_DROP.get(), this);
+        swing(InteractionHand.MAIN_HAND);
+        return true;
+    }
+
+    private void placeEffects(BlockPos pos) {
+        swing(InteractionHand.MAIN_HAND);
+        level().playSound(null, pos, SoundEvents.WOOD_PLACE, SoundSource.HOSTILE, 1.0F, 0.9F);
     }
 
     /**
@@ -194,6 +445,9 @@ public class IMPigEngy extends InvasionMonster {
 
     @Override
     public boolean handleObstacle(BlockPos nexusPos) {
+        if (isBusy()) {
+            return true;
+        }
         if (buildCooldown > 0 || !level().getGameRules().getBoolean(GameRules.RULE_MOBGRIEFING)) {
             return false;
         }

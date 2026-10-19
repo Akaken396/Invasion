@@ -36,6 +36,12 @@ import org.jetbrains.annotations.Nullable;
  * T2: jumping spider (0) or mother spider (1) that lays eggs full of babies.
  */
 public class IMSpider extends Spider implements InvasionMob {
+    /** Invaders are allies: Iron's Spells and vanilla targeting skip allied mobs. */
+    @Override
+    public boolean isAlliedTo(net.minecraft.world.entity.Entity other) {
+        return InvasionAllies.areAllies(this, other) || super.isAlliedTo(other);
+    }
+
     private static final EntityDataAccessor<Integer> DATA_TIER = SynchedEntityData.defineId(IMSpider.class, EntityDataSerializers.INT);
     private static final EntityDataAccessor<Integer> DATA_FLAVOUR = SynchedEntityData.defineId(IMSpider.class, EntityDataSerializers.INT);
 

@@ -34,6 +34,12 @@ import org.jetbrains.annotations.Nullable;
  * are used), and sets up the common AI of the original mod.
  */
 public abstract class InvasionMonster extends Monster implements InvasionMob {
+    /** Invaders are allies: Iron's Spells and vanilla targeting skip allied mobs. */
+    @Override
+    public boolean isAlliedTo(net.minecraft.world.entity.Entity other) {
+        return InvasionAllies.areAllies(this, other) || super.isAlliedTo(other);
+    }
+
     private static final EntityDataAccessor<Integer> DATA_TIER = SynchedEntityData.defineId(InvasionMonster.class, EntityDataSerializers.INT);
     private static final EntityDataAccessor<Integer> DATA_FLAVOUR = SynchedEntityData.defineId(InvasionMonster.class, EntityDataSerializers.INT);
     private static final EntityDataAccessor<Integer> DATA_TEXTURE = SynchedEntityData.defineId(InvasionMonster.class, EntityDataSerializers.INT);
