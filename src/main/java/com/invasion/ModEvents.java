@@ -1,6 +1,9 @@
 package com.invasion;
 
+import com.invasion.blockentity.NexusBlockEntity;
 import com.invasion.entity.IMThrower;
+import com.invasion.nexus.BossRush;
+import net.minecraft.core.BlockPos;
 import com.invasion.entity.InvasionMob;
 import com.invasion.registry.ModItems;
 import net.minecraft.world.entity.Mob;
@@ -16,8 +19,17 @@ import net.minecraftforge.fml.common.Mod;
 public final class ModEvents {
     @SubscribeEvent
     public static void onLivingDeath(LivingDeathEvent event) {
-        if (!event.getEntity().level().isClientSide && event.getEntity() instanceof Mob mob && mob instanceof InvasionMob invader) {
+        if (event.getEntity().level().isClientSide) {
+            return;
+        }
+        if (event.getEntity() instanceof Mob mob && mob instanceof InvasionMob invader) {
             invader.getNexusLink().onDeath(mob);
+        }
+        if (event.getEntity().getPersistentData().contains(BossRush.TAG)) {
+            BlockPos pos = BlockPos.of(event.getEntity().getPersistentData().getLong(BossRush.TAG));
+            if (event.getEntity().level().getBlockEntity(pos) instanceof NexusBlockEntity nexus) {
+                nexus.onBossKilled(event.getEntity().getUUID());
+            }
         }
     }
 

@@ -41,6 +41,10 @@ public final class ModItems {
     public static final RegistryObject<Item> DAMPING_AGENT = described("damping_agent", new Item.Properties().stacksTo(1));
     public static final RegistryObject<Item> STRONG_DAMPING_AGENT = described("strong_damping_agent", new Item.Properties().stacksTo(1));
 
+    public static final RegistryObject<Item> RIFT_INGOT = described("rift_ingot", new Item.Properties().rarity(Rarity.UNCOMMON));
+    public static final RegistryObject<Item> RIFT_ACCELERATOR = described("rift_accelerator", new Item.Properties().stacksTo(16).rarity(Rarity.UNCOMMON));
+    public static final RegistryObject<Item> BOSS_RUSH_CATALYST = described("boss_rush_catalyst", new Item.Properties().stacksTo(1).rarity(Rarity.EPIC));
+
     public static final RegistryObject<Item> STRANGE_BONE = ITEMS.register("strange_bone",
             () -> new StrangeBoneItem(new Item.Properties().stacksTo(1)));
     public static final RegistryObject<Item> INFUSED_SWORD = ITEMS.register("infused_sword",

@@ -1,0 +1,25 @@
+{
+  "type": "minecraft:crafting_shapeless",
+  "category": "misc",
+  "ingredients": [
+    {
+      "item": "invasion:rift_flux"
+    },
+    {
+      "item": "invasion:rift_flux"
+    },
+    {
+      "item": "invasion:rift_flux"
+    },
+    {
+      "item": "invasion:rift_flux"
+    },
+    {
+      "item": "minecraft:gold_ingot"
+    }
+  ],
+  "result": {
+    "item": "invasion:rift_ingot",
+    "count": 1
+  }
+}

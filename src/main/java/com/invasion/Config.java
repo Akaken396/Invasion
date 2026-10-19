@@ -11,6 +11,13 @@ public final class Config {
     public static final ForgeConfigSpec.IntValue MIN_CONTINUOUS_DAYS;
     public static final ForgeConfigSpec.IntValue MAX_CONTINUOUS_DAYS;
 
+    // Boss rush
+    public static final ForgeConfigSpec.ConfigValue<java.util.List<? extends String>> BOSS_RUSH_BOSSES;
+    public static final ForgeConfigSpec.DoubleValue BOSS_HEALTH_MULTIPLIER;
+    public static final ForgeConfigSpec.DoubleValue BOSS_HEALTH_PER_ROUND;
+    public static final ForgeConfigSpec.IntValue BOSS_RUSH_REST_SECONDS;
+    public static final ForgeConfigSpec.IntValue BOSS_RUSH_ESCORTS;
+
     // Mobs
     public static final ForgeConfigSpec.BooleanValue DESTROYED_BLOCKS_DROP;
     public static final ForgeConfigSpec.DoubleValue DIG_SPEED;
@@ -43,6 +50,43 @@ public final class Config {
                 .defineInRange("minDaysToAttack", 2, 0, 1000);
         MAX_CONTINUOUS_DAYS = BUILDER.comment("Maximum number of days between attacks in continuous mode.")
                 .defineInRange("maxDaysToAttack", 3, 0, 1000);
+        BUILDER.pop();
+
+        BUILDER.push("bossRush");
+        BOSS_RUSH_BOSSES = BUILDER.comment("Bosses of the boss rush, in order (modelled on the progression of All the Mods 9).",
+                        "Bosses from mods that are not installed are skipped. Special ids: invasion:brute_lord, invasion:brood_mother, invasion:thrower_titan.")
+                .defineList("bosses", java.util.List.of(
+                        "invasion:brute_lord",
+                        "twilightforest:naga",
+                        "blue_skies:summoner",
+                        "twilightforest:lich",
+                        "invasion:brood_mother",
+                        "twilightforest:minoshroom",
+                        "blue_skies:alchemist",
+                        "cataclysm:netherite_monstrosity",
+                        "twilightforest:alpha_yeti",
+                        "blue_skies:starlit_crusher",
+                        "blue_skies:arachnarch",
+                        "minecraft:wither",
+                        "invasion:thrower_titan",
+                        "cataclysm:ignis",
+                        "twilightforest:snow_queen",
+                        "undergarden:forgotten_guardian",
+                        "irons_spellbooks:dead_king",
+                        "ars_nouveau:wilden_boss",
+                        "cataclysm:the_harbinger",
+                        "cataclysm:ender_guardian",
+                        "cataclysm:ancient_remnant",
+                        "allthemodium:piglich",
+                        "minecraft:warden"), o -> o instanceof String);
+        BOSS_HEALTH_MULTIPLIER = BUILDER.comment("Health multiplier applied to every boss of the boss rush.")
+                .defineInRange("bossHealthMultiplier", 1.0D, 0.1D, 1000.0D);
+        BOSS_HEALTH_PER_ROUND = BUILDER.comment("Extra health per round (0.1 = +10% per round).")
+                .defineInRange("bossHealthPerRound", 0.1D, 0.0D, 100.0D);
+        BOSS_RUSH_REST_SECONDS = BUILDER.comment("Pause between two bosses.")
+                .defineInRange("restSeconds", 30, 0, 3600);
+        BOSS_RUSH_ESCORTS = BUILDER.comment("Invaders that come with each boss (plus one per round).")
+                .defineInRange("escorts", 2, 0, 100);
         BUILDER.pop();
 
         BUILDER.push("mobs");

@@ -109,6 +109,10 @@ public class NexusAttackGoal<T extends PathfinderMob & InvasionMob> extends Goal
             return;
         }
 
+        if (mob.isInWater() || mob.isInLava()) {
+            swimTowards(center);
+        }
+
         if (--repathCooldown <= 0) {
             repathCooldown = 15 + mob.getRandom().nextInt(10);
             Vec3 waypoint = waypoint(center);
@@ -128,6 +132,24 @@ public class NexusAttackGoal<T extends PathfinderMob & InvasionMob> extends Goal
                 stuckSeconds = 0;
                 lastDistance = Double.MAX_VALUE;
             }
+        }
+    }
+
+    /**
+     * Vanilla ground navigation handles water poorly: help the mob swim towards the
+     * Nexus and climb out of streams and pools.
+     */
+    private void swimTowards(Vec3 center) {
+        Vec3 target = mob.getNavigation().getPath() != null && !mob.getNavigation().isDone()
+                ? Vec3.atBottomCenterOf(mob.getNavigation().getPath().getNextNodePos())
+                : center;
+        Vec3 dir = new Vec3(target.x - mob.getX(), 0.0D, target.z - mob.getZ());
+        if (dir.lengthSqr() > 1.0E-4D) {
+            dir = dir.normalize().scale(0.04D);
+            mob.setDeltaMovement(mob.getDeltaMovement().add(dir.x, 0.0D, dir.z));
+        }
+        if (mob.horizontalCollision || target.y > mob.getY() + 0.5D) {
+            mob.setDeltaMovement(mob.getDeltaMovement().x, Math.max(mob.getDeltaMovement().y, 0.3D), mob.getDeltaMovement().z);
         }
     }
 

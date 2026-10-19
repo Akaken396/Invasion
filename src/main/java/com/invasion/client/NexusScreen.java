@@ -39,7 +39,7 @@ public class NexusScreen extends AbstractContainerScreen<NexusMenu> {
         g.blit(BACKGROUND, x + 31, y + 51, 204, 0, l, 2);
 
         int mode = menu.getMode();
-        if (mode == 1 || mode == 3) {
+        if (mode == 1 || mode == 3 || mode == 5) {
             g.blit(BACKGROUND, x + 19, y + 29, 176, 0, 9, 31);
             g.blit(BACKGROUND, x + 19, y + 19, 194, 0, 9, 9);
         } else if (mode == 2) {
@@ -63,6 +63,9 @@ public class NexusScreen extends AbstractContainerScreen<NexusMenu> {
         if (mode == 1 || mode == 3) {
             g.drawString(font, Component.translatable("gui.invasion.nexus.activated"), 13, 62, TEXT, false);
             g.drawString(font, Component.translatable("gui.invasion.nexus.wave", menu.getCurrentWave()), 55, 37, TEXT, false);
+        } else if (mode == 5) {
+            g.drawString(font, Component.translatable("gui.invasion.nexus.boss_rush"), 13, 62, TEXT, false);
+            g.drawString(font, Component.translatable("gui.invasion.nexus.round", menu.getCurrentWave(), menu.getTotalRounds()), 50, 37, TEXT, false);
         } else if (mode == 2) {
             g.drawString(font, Component.translatable("gui.invasion.nexus.power"), 56, 31, TEXT, false);
             g.drawString(font, String.valueOf(menu.getPowerLevel()), 61, 44, TEXT, false);

@@ -92,6 +92,10 @@ public class NexusMenu extends AbstractContainerMenu {
         return data.get(8);
     }
 
+    public int getTotalRounds() {
+        return data.get(11);
+    }
+
     public boolean isActivating() {
         int timer = getActivationTimer();
         return timer > 0 && timer < NexusBlockEntity.ACTIVATION_TIME;

@@ -119,6 +119,16 @@ public class WaveSpawner implements ISpawnerAccess {
         return true;
     }
 
+    /** Spawns a single invader anywhere on the ring (boss rush escorts). */
+    public void spawnEscort(ServerLevel level, EntityConstruct construct) {
+        if (spawnPoints.size() < MIN_SPAWN_POINTS) {
+            generateSpawnPoints(level);
+        }
+        if (spawnPoints.size() > 0) {
+            attemptSpawn(construct, -180, 180);
+        }
+    }
+
     public void invalidateSpawnPoints() {
         spawnPoints.clear();
     }

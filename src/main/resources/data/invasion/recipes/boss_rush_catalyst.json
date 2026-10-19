@@ -1,0 +1,21 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "pattern": [
+    " I ",
+    "ISI",
+    " I "
+  ],
+  "key": {
+    "I": {
+      "item": "invasion:rift_ingot"
+    },
+    "S": {
+      "item": "invasion:strong_catalyst"
+    }
+  },
+  "result": {
+    "item": "invasion:boss_rush_catalyst",
+    "count": 1
+  }
+}

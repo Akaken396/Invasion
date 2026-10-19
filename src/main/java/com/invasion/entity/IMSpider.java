@@ -96,6 +96,10 @@ public class IMSpider extends Spider implements InvasionMob {
         return getTier() == 2 && getFlavour() == 0;
     }
 
+    public void setEggs(int eggs) {
+        this.eggs = eggs;
+    }
+
     public boolean isMother() {
         return getTier() == 2 && getFlavour() == 1;
     }
@@ -204,6 +208,12 @@ public class IMSpider extends Spider implements InvasionMob {
             egg.setup(link.getNexusPos(), 6);
             level().addFreshEntity(egg);
         }
+    }
+
+    /** Invaders aren't swept away by flowing water (they used to get stuck in streams). */
+    @Override
+    public boolean isPushedByFluid() {
+        return false;
     }
 
     @Override

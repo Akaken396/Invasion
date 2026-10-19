@@ -1,0 +1,16 @@
+{
+  "type": "minecraft:crafting_shapeless",
+  "category": "misc",
+  "ingredients": [
+    {
+      "item": "invasion:rift_ingot"
+    },
+    {
+      "item": "invasion:nexus_catalyst"
+    }
+  ],
+  "result": {
+    "item": "invasion:rift_accelerator",
+    "count": 2
+  }
+}

@@ -85,6 +85,12 @@ public class IMSkeleton extends Skeleton implements InvasionMob {
         }
     }
 
+    /** Invaders aren't swept away by flowing water (they used to get stuck in streams). */
+    @Override
+    public boolean isPushedByFluid() {
+        return false;
+    }
+
     @Override
     public boolean removeWhenFarAway(double distance) {
         return !link.hasNexus() && super.removeWhenFarAway(distance);

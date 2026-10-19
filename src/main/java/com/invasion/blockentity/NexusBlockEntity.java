@@ -4,6 +4,7 @@ import com.invasion.Config;
 import com.invasion.block.NexusBlock;
 import com.invasion.entity.InvasionMob;
 import com.invasion.menu.NexusMenu;
+import com.invasion.nexus.BossRush;
 import com.invasion.nexus.WaveSpawner;
 import com.invasion.nexus.wave.Wave;
 import com.invasion.nexus.wave.WaveBuilder;
@@ -54,14 +55,14 @@ import java.util.UUID;
  * The Nexus (port of the original TileEntityNexus).
  * <p>
  * Modes: 0 idle, 1 wave invasion, 2 continuous mode (waiting for the next night attack),
- * 3 wave invasion started while in continuous mode, 4 about to enter continuous mode.
+ * 3 wave invasion started while in continuous mode, 4 about to enter continuous mode, 5 boss rush.
  * Putting a catalyst in the input slot charges the activation bar for 20 seconds,
  * then the invasion starts. Hit points: 100.
  */
 public class NexusBlockEntity extends BlockEntity implements MenuProvider {
     public static final int SLOT_INPUT = 0;
     public static final int SLOT_OUTPUT = 1;
-    public static final int DATA_COUNT = 11;
+    public static final int DATA_COUNT = 12;
     public static final int MAX_HP = 100;
     public static final int ACTIVATION_TIME = 400;
     public static final int COOK_TIME = 1200;
@@ -76,6 +77,8 @@ public class NexusBlockEntity extends BlockEntity implements MenuProvider {
         }
     };
     private final WaveSpawner spawner = new WaveSpawner(this);
+    private final BossRush bossRush = new BossRush(this);
+    private int accelerateCooldown;
     private final Map<UUID, Long> boundPlayers = new HashMap<>();
 
     private int mode;
@@ -117,12 +120,13 @@ public class NexusBlockEntity extends BlockEntity implements MenuProvider {
                 case 2 -> nexusLevel;
                 case 3 -> Math.min(nexusKills, Short.MAX_VALUE);
                 case 4 -> getSpawnRadius();
-                case 5 -> currentWave;
+                case 5 -> mode == 5 ? bossRush.getRound() : currentWave;
                 case 6 -> Math.min(powerLevel, Short.MAX_VALUE);
                 case 7 -> generation;
                 case 8 -> cookTime;
                 case 9 -> hp;
                 case 10 -> activated ? 1 : 0;
+                case 11 -> bossRush.getTotal();
                 default -> 0;
             };
         }
@@ -150,7 +154,11 @@ public class NexusBlockEntity extends BlockEntity implements MenuProvider {
 
     /** True while an invasion or continuous mode is running. */
     public boolean isActive() {
-        return mode == 1 || mode == 2 || mode == 3;
+        return mode == 1 || mode == 2 || mode == 3 || mode == 5;
+    }
+
+    public WaveSpawner getSpawner() {
+        return spawner;
     }
 
     public int getMode() {
@@ -204,7 +212,7 @@ public class NexusBlockEntity extends BlockEntity implements MenuProvider {
 
     private void tick(ServerLevel level) {
         updateStatus(level);
-        if (mode == 1 || mode == 2 || mode == 3) {
+        if (mode == 1 || mode == 2 || mode == 3 || mode == 5) {
             if (resumedFromNBT) {
                 resume(level);
                 resumedFromNBT = false;
@@ -217,6 +225,8 @@ public class NexusBlockEntity extends BlockEntity implements MenuProvider {
             }
             if (mode == 1 || mode == 3) {
                 doInvasion(level);
+            } else if (mode == 5) {
+                doBossRush(level);
             } else {
                 doContinuous(level);
             }
@@ -251,10 +261,23 @@ public class NexusBlockEntity extends BlockEntity implements MenuProvider {
             cookTime = 0;
         }
 
+        if (accelerateCooldown > 0) {
+            accelerateCooldown--;
+        }
+        if ((mode == 1 || mode == 3) && input.is(ModItems.RIFT_ACCELERATOR.get()) && accelerateCooldown <= 0 && spawner.isActive()) {
+            accelerateWave(level);
+        }
+
         if (activationTimer >= ACTIVATION_TIME) {
             activationTimer = 0;
             Item item = input.getItem();
             if (!input.isEmpty()) {
+                if (item == ModItems.BOSS_RUSH_CATALYST.get() && mode == 0) {
+                    items.extractItem(SLOT_INPUT, 1, false);
+                    activated = true;
+                    startBossRush(level);
+                    return;
+                }
                 if (item == ModItems.NEXUS_CATALYST.get()) {
                     items.extractItem(SLOT_INPUT, 1, false);
                     activated = true;
@@ -270,7 +293,7 @@ public class NexusBlockEntity extends BlockEntity implements MenuProvider {
                 }
             }
         } else if (mode == 0 || mode == 4) {
-            if (isInvasionCatalyst(input)) {
+            if (isActivationItem(input)) {
                 if (canActivate(level)) {
                     activationTimer++;
                 }
@@ -294,6 +317,10 @@ public class NexusBlockEntity extends BlockEntity implements MenuProvider {
 
     private static boolean isInvasionCatalyst(ItemStack stack) {
         return stack.is(ModItems.NEXUS_CATALYST.get()) || stack.is(ModItems.STRONG_CATALYST.get());
+    }
+
+    private boolean isActivationItem(ItemStack stack) {
+        return isInvasionCatalyst(stack) || (mode == 0 && stack.is(ModItems.BOSS_RUSH_CATALYST.get()));
     }
 
     private boolean canActivate(ServerLevel level) {
@@ -488,6 +515,81 @@ public class NexusBlockEntity extends BlockEntity implements MenuProvider {
         }
     }
 
+    /** Rift Accelerator: skip straight to the next wave. */
+    private void accelerateWave(ServerLevel level) {
+        items.extractItem(SLOT_INPUT, 1, false);
+        accelerateCooldown = 100;
+        currentWave++;
+        nexusLevel = Math.max(nexusLevel, currentWave);
+        spawner.beginNextWave(level, currentWave);
+        waveDelayTimer = -1L;
+        messageBoundPlayers(Component.translatable("message.invasion.accelerated", currentWave).withStyle(ChatFormatting.DARK_PURPLE));
+        playSoundForBoundPlayers(level, ModSounds.RUMBLE.get());
+        setChanged();
+    }
+
+    // ------------------------------------------------------------------
+    // Boss rush
+
+    private void startBossRush(ServerLevel level) {
+        bossRush.start();
+        if (bossRush.getTotal() == 0) {
+            messageNearbyPlayers(level, Component.translatable("message.invasion.boss_rush.no_bosses").withStyle(ChatFormatting.RED));
+            activated = false;
+            return;
+        }
+        setMode(5);
+        bindPlayers(level);
+        hp = MAX_HP;
+        lastHp = MAX_HP;
+        messageBoundPlayers(Component.translatable("message.invasion.boss_rush.start", bossRush.getTotal()).withStyle(ChatFormatting.DARK_PURPLE));
+        playSoundForBoundPlayers(level, ModSounds.RUMBLE.get());
+    }
+
+    private void doBossRush(ServerLevel level) {
+        if (hp <= 0) {
+            theEnd(level);
+            return;
+        }
+        generateFlux(1);
+        int defeatedRound = bossRush.getRound();
+        switch (bossRush.tick(level)) {
+            case BOSS_DEFEATED -> {
+                messageBoundPlayers(Component.translatable("message.invasion.boss_rush.defeated", defeatedRound, bossRush.getTotal(),
+                        Config.BOSS_RUSH_REST_SECONDS.get()).withStyle(ChatFormatting.GREEN));
+                playSoundForBoundPlayers(level, ModSounds.CHIME.get());
+                giveReward(level, new ItemStack(ModItems.RIFT_FLUX.get(), 2 + defeatedRound));
+                hp = Math.min(MAX_HP, hp + 20);
+                lastHp = hp;
+                nexusLevel = Math.max(nexusLevel, defeatedRound);
+            }
+            case COMPLETE -> {
+                messageBoundPlayers(Component.translatable("message.invasion.boss_rush.complete", bossRush.getTotal())
+                        .withStyle(ChatFormatting.GOLD));
+                playSoundForBoundPlayers(level, SoundEvents.UI_TOAST_CHALLENGE_COMPLETE);
+                giveReward(level, new ItemStack(ModItems.RIFT_FLUX.get(), 2 + defeatedRound));
+                giveReward(level, new ItemStack(ModItems.RIFT_INGOT.get(), bossRush.getTotal()));
+                giveReward(level, new ItemStack(ModItems.STRONG_CATALYST.get()));
+                killAllMobs(level);
+                stop(level);
+            }
+            default -> {
+            }
+        }
+    }
+
+    /** Called when a boss of the boss rush dies. */
+    public void onBossKilled(UUID id) {
+        bossRush.onBossKilled(id);
+    }
+
+    private void giveReward(ServerLevel level, ItemStack stack) {
+        ItemStack rest = items.insertItem(SLOT_OUTPUT, stack, false);
+        if (!rest.isEmpty()) {
+            Containers.dropItemStack(level, worldPosition.getX() + 0.5D, worldPosition.getY() + 1.2D, worldPosition.getZ() + 0.5D, rest);
+        }
+    }
+
     /** Called by invaders (and boulders) hitting the Nexus. */
     public void damageNexus(int damage) {
         if (!(level instanceof ServerLevel serverLevel) || !isActive()) {
@@ -498,7 +600,7 @@ public class NexusBlockEntity extends BlockEntity implements MenuProvider {
         serverLevel.sendParticles(ParticleTypes.DAMAGE_INDICATOR, c.x, c.y + 0.6D, c.z, 2, 0.3D, 0.3D, 0.3D, 0.1D);
         if (hp <= 0) {
             hp = 0;
-            if (mode == 1) {
+            if (mode == 1 || mode == 5) {
                 theEnd(serverLevel);
             }
         }
@@ -561,6 +663,9 @@ public class NexusBlockEntity extends BlockEntity implements MenuProvider {
     }
 
     private void stop(ServerLevel level) {
+        if (mode == 5) {
+            bossRush.removeBoss(level);
+        }
         if (mode == 3) {
             setMode(2);
             nextAttackTime = level.getDayTime() / 24000L * 24000L + 14000L + randomDays(level) * 24000L;
@@ -695,7 +800,18 @@ public class NexusBlockEntity extends BlockEntity implements MenuProvider {
                     BossEvent.BossBarOverlay.NOTCHED_10);
         }
         Component name;
-        if (mode == 2 && !continuousAttack) {
+        float progress = hp / (float) MAX_HP;
+        if (mode == 5) {
+            if (bossRush.isResting()) {
+                name = Component.translatable("bossbar.invasion.boss_rush.rest", bossRush.getRound(), bossRush.getTotal(),
+                        bossRush.getRestSeconds(), hp);
+            } else {
+                name = Component.translatable("bossbar.invasion.boss_rush", bossRush.getRound(), bossRush.getTotal(),
+                        bossRush.getBossName(), hp);
+                progress = bossRush.getBossHealthRatio();
+            }
+            bossBar.setColor(BossEvent.BossBarColor.RED);
+        } else if (mode == 2 && !continuousAttack) {
             name = Component.translatable("bossbar.invasion.continuous", powerLevel, hp);
             bossBar.setColor(BossEvent.BossBarColor.BLUE);
         } else if (mode == 2) {
@@ -706,7 +822,7 @@ public class NexusBlockEntity extends BlockEntity implements MenuProvider {
             bossBar.setColor(BossEvent.BossBarColor.PURPLE);
         }
         bossBar.setName(name);
-        bossBar.setProgress(Mth.clamp(hp / (float) MAX_HP, 0.0F, 1.0F));
+        bossBar.setProgress(Mth.clamp(progress, 0.0F, 1.0F));
         Vec3 c = getCenter();
         double range = getSpawnRadius() + 16;
         for (ServerPlayer player : level.players()) {
@@ -803,6 +919,9 @@ public class NexusBlockEntity extends BlockEntity implements MenuProvider {
             players.add(NbtUtils.createUUID(id));
         }
         tag.put("boundPlayers", players);
+        CompoundTag rush = new CompoundTag();
+        bossRush.save(rush);
+        tag.put("bossRush", rush);
     }
 
     @Override
@@ -832,6 +951,7 @@ public class NexusBlockEntity extends BlockEntity implements MenuProvider {
         for (Tag player : players) {
             boundPlayers.put(NbtUtils.loadUUID(player), 0L);
         }
+        bossRush.load(tag.getCompound("bossRush"));
         if (mode == 1 || mode == 3 || (mode == 2 && continuousAttack)) {
             resumedFromNBT = true;
             spawnerElapsedRestore = tag.getLong("spawnerElapsed");
