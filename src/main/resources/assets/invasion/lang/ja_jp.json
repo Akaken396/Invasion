@@ -23,7 +23,7 @@
   "item.invasion.strong_damping_agent": "強力な減衰剤",
   "item.invasion.strong_damping_agent.desc": "継続モードのネクサスに入れておくとパワーが下がり、やがて停止する。",
   "item.invasion.strange_bone": "奇妙な骨",
-  "item.invasion.strange_bone.desc": "ネクサスの近くにいる飼い慣らしたオオカミに使うとネクサスの守護者になる。",
+  "item.invasion.strange_bone.desc": "ネクサスの近くにいる自分のペット（オオカミ、ネコ、Cataclysm のベビーリヴァイアサン等）に使うとネクサスの守護者になる。体力が上がり、侵略者を狙って2倍のダメージを与え、侵略中は倒れてもネクサスで復活する。",
   "item.invasion.infused_sword": "インフューズドソード",
   "item.invasion.infused_sword.desc": "攻撃するたびにチャージされる。満タンで使うと回復する（スニーク中は満腹度回復）。",
   "item.invasion.infused_sword.charge": "チャージ: %s / %s",
@@ -86,7 +86,7 @@
   "message.invasion.adjuster.radius": "ネクサスの範囲: %s",
   "message.invasion.adjuster.active": "稼働中は範囲を変更できません。",
   "message.invasion.probe.strength": "ブロック強度: %s",
-  "message.invasion.strange_bone.no_nexus": "オオカミはこの奇妙な骨が気に入らないようだ。",
+  "message.invasion.strange_bone.no_nexus": "ペットはこの奇妙な骨が気に入らないようだ。（16ブロック以内にネクサスがない）",
   "message.invasion.status": "ネクサス - レベル %s, ウェーブ %s, HP %s, 半径 %s, パワー %s, モード %s",
   "command.invasion.no_nexus": "32ブロック以内にネクサスがありません。",
   "command.invasion.begin": "ウェーブ %s から侵略を開始しました",
@@ -172,5 +172,7 @@
   "elite.invasion.splitting": "分裂する",
   "elite.invasion.volatile": "爆ぜる",
   "elite.invasion.mending": "癒やしの",
-  "elite.invasion.swift": "俊足の"
+  "elite.invasion.swift": "俊足の",
+  "message.invasion.strange_bone.not_owner": "あなたのペットではありません。",
+  "message.invasion.strange_bone.bound": "%s がネクサスの守護者になった！"
 }

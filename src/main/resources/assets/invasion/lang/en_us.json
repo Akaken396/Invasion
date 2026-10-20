@@ -23,7 +23,7 @@
   "item.invasion.strong_damping_agent": "Strong Damping Agent",
   "item.invasion.strong_damping_agent.desc": "Keep it in a Nexus in continuous mode to drain its power and shut it down.",
   "item.invasion.strange_bone": "Strange Bone",
-  "item.invasion.strange_bone.desc": "Give it to a tamed wolf near a Nexus to make it a Nexus guardian.",
+  "item.invasion.strange_bone.desc": "Use it on your tamed pet (wolf, cat, Cataclysm's baby leviathan...) near a Nexus to make it a Nexus guardian: tougher, hunts invaders, hits them twice as hard and returns to the Nexus instead of dying during an invasion.",
   "item.invasion.infused_sword": "Infused Sword",
   "item.invasion.infused_sword.desc": "Charges with every hit. When full, use it to heal (sneak: restore hunger).",
   "item.invasion.infused_sword.charge": "Charge: %s / %s",
@@ -86,7 +86,7 @@
   "message.invasion.adjuster.radius": "Nexus range changed to: %s",
   "message.invasion.adjuster.active": "The range can't be changed while the nexus is active.",
   "message.invasion.probe.strength": "Block strength: %s",
-  "message.invasion.strange_bone.no_nexus": "The wolf doesn't like this strange bone.",
+  "message.invasion.strange_bone.no_nexus": "Your pet doesn't like this strange bone. (No Nexus within 16 blocks.)",
   "message.invasion.status": "Nexus - level %s, wave %s, hp %s, radius %s, power %s, mode %s",
   "command.invasion.no_nexus": "No nexus within 32 blocks.",
   "command.invasion.begin": "Invasion started at wave %s",
@@ -172,5 +172,7 @@
   "elite.invasion.splitting": "Splitting",
   "elite.invasion.volatile": "Volatile",
   "elite.invasion.mending": "Mending",
-  "elite.invasion.swift": "Swift"
+  "elite.invasion.swift": "Swift",
+  "message.invasion.strange_bone.not_owner": "This is not your pet.",
+  "message.invasion.strange_bone.bound": "%s now guards the Nexus!"
 }
