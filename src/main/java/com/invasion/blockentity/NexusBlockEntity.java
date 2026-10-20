@@ -237,10 +237,6 @@ public class NexusBlockEntity extends BlockEntity implements MenuProvider {
         return MAX_HP + hpLevel * Config.UPGRADE_HP_PER_LEVEL.get();
     }
 
-    public int getHp() {
-        return hp;
-    }
-
     public int getUpgradeLevel(int upgrade) {
         return switch (upgrade) {
             case UPGRADE_HP -> hpLevel;
