@@ -4,6 +4,8 @@ import com.invasion.InvasionMod;
 import com.invasion.blockentity.NexusBlockEntity;
 import com.invasion.menu.NexusMenu;
 import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.components.Button;
+import net.minecraft.client.gui.components.Tooltip;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
@@ -18,6 +20,44 @@ public class NexusScreen extends AbstractContainerScreen<NexusMenu> {
         super(menu, inventory, title);
         imageWidth = 176;
         imageHeight = 166;
+    }
+
+    private final Button[] upgradeButtons = new Button[3];
+
+    @Override
+    protected void init() {
+        super.init();
+        for (int i = 0; i < upgradeButtons.length; i++) {
+            int id = i;
+            upgradeButtons[i] = addRenderableWidget(Button.builder(Component.empty(), b -> {
+                if (minecraft != null && minecraft.gameMode != null) {
+                    minecraft.gameMode.handleInventoryButtonClick(menu.containerId, id);
+                }
+            }).bounds(leftPos + imageWidth + 4, topPos + 18 + i * 24, 110, 20).build());
+        }
+        updateButtons();
+    }
+
+    @Override
+    protected void containerTick() {
+        super.containerTick();
+        updateButtons();
+    }
+
+    private void updateButtons() {
+        for (int i = 0; i < upgradeButtons.length; i++) {
+            Button button = upgradeButtons[i];
+            if (button == null) {
+                continue;
+            }
+            int level = menu.getUpgradeLevel(i);
+            boolean max = level >= NexusBlockEntity.UPGRADE_MAX[i];
+            button.setMessage(Component.translatable("gui.invasion.upgrade.button", Component.translatable("gui.invasion.upgrade." + i),
+                    level, max ? Component.translatable("gui.invasion.upgrade.max") : Component.literal(String.valueOf(
+                            NexusBlockEntity.upgradeCost(i, level)))));
+            button.active = !max;
+            button.setTooltip(Tooltip.create(Component.translatable("gui.invasion.upgrade." + i + ".desc")));
+        }
     }
 
     @Override
@@ -57,6 +97,7 @@ public class NexusScreen extends AbstractContainerScreen<NexusMenu> {
     @Override
     protected void renderLabels(GuiGraphics g, int mouseX, int mouseY) {
         g.drawString(font, Component.translatable("gui.invasion.nexus.title", menu.getNexusLevel()), 46, 6, TEXT, false);
+        g.drawString(font, Component.translatable("gui.invasion.nexus.hp", menu.getHp(), menu.getMaxHp()), imageWidth + 4, 6, 0xFFFFFF, true);
         g.drawString(font, Component.translatable("gui.invasion.nexus.kills", menu.getKills()), 96, 60, TEXT, false);
         g.drawString(font, Component.translatable("gui.invasion.nexus.radius", menu.getSpawnRadius()), 142, 72, TEXT, false);
         int mode = menu.getMode();

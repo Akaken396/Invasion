@@ -195,6 +195,7 @@ public class WaveSpawner implements ISpawnerAccess {
             mob.moveTo(pos.getX() + 0.5D, pos.getY(), pos.getZ() + 0.5D, level.random.nextFloat() * 360.0F, 0.0F);
             if (level.noCollision(mob) && !level.containsAnyLiquid(mob.getBoundingBox())) {
                 LateWaveScaling.apply(mob, nexus.getCurrentWave(), level.random);
+                EliteMobs.maybeMakeElite(mob, nexus, level.random);
                 level.addFreshEntity(mob);
                 nexus.noteSpawned();
                 level.sendParticles(ParticleTypes.PORTAL, mob.getX(), mob.getY() + 1.0D, mob.getZ(), 20, 0.4D, 0.8D, 0.4D, 0.4D);

@@ -201,9 +201,8 @@ public final class WaveBuilder {
             return new SingleSelection<>(pattern(name));
         }
         if (name.startsWith("zombie_t")) {
-            return name.equals("zombie_t3_any")
-                    ? random().add(pattern("evoker"), 1).add(pattern("vindicator"), 1)
-                    : random().add(pattern("vindicator"), 3).add(pattern("evoker"), 1);
+            // Vindicators only: evokers fill the field with vexes and fangs.
+            return new SingleSelection<>(pattern("vindicator"));
         }
         if (name.equals("pigengy_t1_any")) {
             return random().add(pattern("pigengy_t1_any"), 1).add(pattern("pigengy_t2_warded"), 1);

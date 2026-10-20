@@ -21,21 +21,24 @@ import org.jetbrains.annotations.NotNull;
 public class NexusMenu extends AbstractContainerMenu {
     private final ContainerData data;
     private final ContainerLevelAccess access;
+    private final NexusBlockEntity nexus;
 
     /** Client side constructor. */
     public NexusMenu(int id, Inventory inventory, FriendlyByteBuf buf) {
-        this(id, inventory, new ItemStackHandler(2), new SimpleContainerData(NexusBlockEntity.DATA_COUNT), ContainerLevelAccess.NULL);
+        this(id, inventory, new ItemStackHandler(2), new SimpleContainerData(NexusBlockEntity.DATA_COUNT), ContainerLevelAccess.NULL, null);
     }
 
     /** Server side constructor. */
     public NexusMenu(int id, Inventory inventory, NexusBlockEntity nexus, ContainerData data) {
-        this(id, inventory, nexus.getItems(), data, ContainerLevelAccess.create(nexus.getLevel(), nexus.getBlockPos()));
+        this(id, inventory, nexus.getItems(), data, ContainerLevelAccess.create(nexus.getLevel(), nexus.getBlockPos()), nexus);
     }
 
-    private NexusMenu(int id, Inventory inventory, IItemHandler items, ContainerData data, ContainerLevelAccess access) {
+    private NexusMenu(int id, Inventory inventory, IItemHandler items, ContainerData data, ContainerLevelAccess access,
+                      @org.jetbrains.annotations.Nullable NexusBlockEntity nexus) {
         super(ModMenus.NEXUS.get(), id);
         this.data = data;
         this.access = access;
+        this.nexus = nexus;
         checkContainerDataCount(data, NexusBlockEntity.DATA_COUNT);
 
         addSlot(new SlotItemHandler(items, NexusBlockEntity.SLOT_INPUT, 32, 33));
@@ -94,6 +97,24 @@ public class NexusMenu extends AbstractContainerMenu {
 
     public int getTotalRounds() {
         return data.get(11);
+    }
+
+    public int getHp() {
+        return data.get(9);
+    }
+
+    public int getMaxHp() {
+        return data.get(15);
+    }
+
+    public int getUpgradeLevel(int upgrade) {
+        return data.get(12 + upgrade);
+    }
+
+    /** Upgrade buttons of the screen (ids 0-2). */
+    @Override
+    public boolean clickMenuButton(Player player, int id) {
+        return nexus != null && nexus.tryUpgrade(player, id);
     }
 
     public boolean isActivating() {

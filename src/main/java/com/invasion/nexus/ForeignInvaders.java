@@ -135,7 +135,7 @@ public final class ForeignInvaders {
                 if (cooldown <= 0 && mob.level().getBlockEntity(nexusPos) instanceof NexusBlockEntity nexus) {
                     cooldown = 40;
                     mob.swing(InteractionHand.MAIN_HAND);
-                    nexus.damageNexus(2);
+                    nexus.damageNexus(2, mob);
                 }
                 return;
             }
@@ -166,6 +166,7 @@ public final class ForeignInvaders {
         mob.setPersistenceRequired();
         tag(mob, nexus.getBlockPos());
         LateWaveScaling.apply(mob, wave, level.random);
+        EliteMobs.maybeMakeElite(mob, nexus, level.random);
         level.addFreshEntity(mob);
         nexus.noteSpawned();
         return true;

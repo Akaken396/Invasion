@@ -63,8 +63,12 @@ import java.util.UUID;
 public class NexusBlockEntity extends BlockEntity implements MenuProvider {
     public static final int SLOT_INPUT = 0;
     public static final int SLOT_OUTPUT = 1;
-    public static final int DATA_COUNT = 12;
+    public static final int DATA_COUNT = 16;
     public static final int MAX_HP = 100;
+    public static final int UPGRADE_HP = 0;
+    public static final int UPGRADE_TURRET = 1;
+    public static final int UPGRADE_THORNS = 2;
+    public static final int[] UPGRADE_MAX = {10, 5, 5};
     public static final int ACTIVATION_TIME = 400;
     public static final int COOK_TIME = 1200;
     public static final int GENERATION_PER_FLUX = 3000;
@@ -112,6 +116,16 @@ public class NexusBlockEntity extends BlockEntity implements MenuProvider {
     private int aliveEstimate;
     private int foreignToSpawn;
     private int foreignTimer;
+    private int hpLevel;
+    private int turretLevel;
+    private int thornsLevel;
+    private int turretTimer;
+    private int elitesToSpawn;
+    @Nullable
+    private BlockPos linkedChest;
+    private final Map<UUID, Float> waveDamage = new HashMap<>();
+    private final Map<UUID, Integer> waveKills = new HashMap<>();
+    private final Map<UUID, String> waveNames = new HashMap<>();
     @Nullable
     private ServerBossEvent bossBar;
 
@@ -131,6 +145,10 @@ public class NexusBlockEntity extends BlockEntity implements MenuProvider {
                 case 9 -> hp;
                 case 10 -> activated ? 1 : 0;
                 case 11 -> bossRush.getTotal();
+                case 12 -> hpLevel;
+                case 13 -> turretLevel;
+                case 14 -> thornsLevel;
+                case 15 -> getMaxHp();
                 default -> 0;
             };
         }
@@ -213,6 +231,184 @@ public class NexusBlockEntity extends BlockEntity implements MenuProvider {
     }
 
     // ------------------------------------------------------------------
+    // Upgrades bought with rift flux
+
+    public int getMaxHp() {
+        return MAX_HP + hpLevel * Config.UPGRADE_HP_PER_LEVEL.get();
+    }
+
+    public int getHp() {
+        return hp;
+    }
+
+    public int getUpgradeLevel(int upgrade) {
+        return switch (upgrade) {
+            case UPGRADE_HP -> hpLevel;
+            case UPGRADE_TURRET -> turretLevel;
+            case UPGRADE_THORNS -> thornsLevel;
+            default -> 0;
+        };
+    }
+
+    /** Rift flux needed for the next level of an upgrade. */
+    public static int upgradeCost(int upgrade, int currentLevel) {
+        int base = switch (upgrade) {
+            case UPGRADE_HP -> 4 + 2 * currentLevel;
+            case UPGRADE_TURRET -> 8 + 4 * currentLevel;
+            default -> 6 + 3 * currentLevel;
+        };
+        return Math.max(1, (int) Math.round(base * Config.UPGRADE_COST_MULTIPLIER.get()));
+    }
+
+    /** Buys the next level of an upgrade with rift flux from the player's inventory. */
+    public boolean tryUpgrade(Player player, int upgrade) {
+        if (upgrade < 0 || upgrade >= UPGRADE_MAX.length) {
+            return false;
+        }
+        int current = getUpgradeLevel(upgrade);
+        if (current >= UPGRADE_MAX[upgrade]) {
+            player.displayClientMessage(Component.translatable("message.invasion.upgrade.max").withStyle(ChatFormatting.RED), true);
+            return false;
+        }
+        int cost = upgradeCost(upgrade, current);
+        Item flux = ModItems.RIFT_FLUX.get();
+        if (!player.getAbilities().instabuild) {
+            if (player.getInventory().countItem(flux) < cost) {
+                player.displayClientMessage(Component.translatable("message.invasion.upgrade.no_flux", cost).withStyle(ChatFormatting.RED), true);
+                return false;
+            }
+            int left = cost;
+            Inventory inv = player.getInventory();
+            for (int i = 0; i < inv.getContainerSize() && left > 0; i++) {
+                ItemStack stack = inv.getItem(i);
+                if (stack.is(flux)) {
+                    int take = Math.min(left, stack.getCount());
+                    stack.shrink(take);
+                    left -= take;
+                }
+            }
+        }
+        switch (upgrade) {
+            case UPGRADE_HP -> {
+                hpLevel++;
+                hp += Config.UPGRADE_HP_PER_LEVEL.get();
+                lastHp = hp;
+            }
+            case UPGRADE_TURRET -> turretLevel++;
+            default -> thornsLevel++;
+        }
+        player.displayClientMessage(Component.translatable("message.invasion.upgrade.done",
+                Component.translatable("gui.invasion.upgrade." + upgrade), current + 1).withStyle(ChatFormatting.GREEN), true);
+        if (level != null) {
+            level.playSound(null, worldPosition, SoundEvents.PLAYER_LEVELUP, SoundSource.BLOCKS, 0.8F, 1.2F);
+        }
+        setChanged();
+        return true;
+    }
+
+    /** Nexus Repair Kit: heals part of the maximum hit points. */
+    public boolean repair(int amount) {
+        if (hp >= getMaxHp()) {
+            return false;
+        }
+        hp = Math.min(getMaxHp(), hp + amount);
+        lastHp = hp;
+        setChanged();
+        return true;
+    }
+
+    /** Lightning turret: strikes the nearest invader now and then. */
+    private void tickTurret(ServerLevel level) {
+        if (turretLevel <= 0 || !isActive() || ++turretTimer < 200 - 30 * turretLevel) {
+            return;
+        }
+        turretTimer = 0;
+        Vec3 c = getCenter();
+        double range = getSpawnRadius() + 8.0D;
+        Mob target = mobList.stream().filter(Mob::isAlive).filter(m -> m.distanceToSqr(c) < range * range)
+                .min(Comparator.comparingDouble(m -> m.distanceToSqr(c))).orElse(null);
+        if (target == null) {
+            return;
+        }
+        net.minecraft.world.entity.LightningBolt bolt = net.minecraft.world.entity.EntityType.LIGHTNING_BOLT.create(level);
+        if (bolt != null) {
+            bolt.moveTo(target.getX(), target.getY(), target.getZ());
+            bolt.setVisualOnly(true);
+            level.addFreshEntity(bolt);
+        }
+        target.hurt(level.damageSources().lightningBolt(), 6.0F + 3.0F * turretLevel);
+    }
+
+    // ------------------------------------------------------------------
+    // Elites
+
+    public boolean takeEliteSlot(net.minecraft.util.RandomSource random) {
+        if (elitesToSpawn > 0 && random.nextInt(12) == 0) {
+            elitesToSpawn--;
+            return true;
+        }
+        return false;
+    }
+
+    // ------------------------------------------------------------------
+    // Drop chest
+
+    @Nullable
+    public BlockPos getLinkedChest() {
+        return linkedChest;
+    }
+
+    public void setLinkedChest(@Nullable BlockPos pos) {
+        linkedChest = pos == null ? null : pos.immutable();
+        setChanged();
+    }
+
+    /** Whether a death at this position belongs to this Nexus's area. */
+    public boolean isInArea(Vec3 pos) {
+        double range = getSpawnRadius() + 32.0D;
+        return pos.distanceToSqr(getCenter()) < range * range;
+    }
+
+    // ------------------------------------------------------------------
+    // Damage / kill stats of the current wave
+
+    public void recordDamage(Player player, float amount) {
+        waveDamage.merge(player.getUUID(), amount, Float::sum);
+        waveNames.put(player.getUUID(), player.getGameProfile().getName());
+    }
+
+    public void recordKill(Player player) {
+        waveKills.merge(player.getUUID(), 1, Integer::sum);
+        waveNames.put(player.getUUID(), player.getGameProfile().getName());
+    }
+
+    private void clearStats() {
+        waveDamage.clear();
+        waveKills.clear();
+        waveNames.clear();
+    }
+
+    private void reportStats(Component header) {
+        if (!Config.WAVE_STATS.get() || waveNames.isEmpty()) {
+            clearStats();
+            return;
+        }
+        messageBoundPlayers(header.copy().withStyle(ChatFormatting.AQUA));
+        List<UUID> order = new java.util.ArrayList<>(waveNames.keySet());
+        order.sort(Comparator.comparingDouble((UUID id) -> waveDamage.getOrDefault(id, 0.0F)).reversed());
+        int rank = 1;
+        for (UUID id : order) {
+            if (rank > 10) {
+                break;
+            }
+            messageBoundPlayers(Component.translatable("message.invasion.stats.line", rank, waveNames.get(id),
+                    waveKills.getOrDefault(id, 0), Math.round(waveDamage.getOrDefault(id, 0.0F))).withStyle(ChatFormatting.GRAY));
+            rank++;
+        }
+        clearStats();
+    }
+
+    // ------------------------------------------------------------------
     // Ladders at the foot of the towers built by pigman engineers
 
     private final java.util.List<BlockPos> accessPoints = new java.util.ArrayList<>();
@@ -280,6 +476,7 @@ public class NexusBlockEntity extends BlockEntity implements MenuProvider {
                         mob -> mob.isAlive() && mob instanceof InvasionMob invader && invader.getNexusLink().isLinkedTo(worldPosition));
                 aliveEstimate = mobList.size();
             }
+            tickTurret(level);
             if (mode == 1 || mode == 3) {
                 doInvasion(level);
             } else if (mode == 5) {
@@ -421,8 +618,8 @@ public class NexusBlockEntity extends BlockEntity implements MenuProvider {
         onWaveBegin(level);
         setMode(mode == 0 ? 1 : 3);
         bindPlayers(level);
-        hp = MAX_HP;
-        lastHp = MAX_HP;
+        hp = getMaxHp();
+        lastHp = getMaxHp();
         waveDelayTimer = -1L;
         nexusLevel = Math.max(nexusLevel, currentWave);
         messageBoundPlayers(Component.translatable("message.invasion.first_wave").withStyle(ChatFormatting.RED));
@@ -435,8 +632,8 @@ public class NexusBlockEntity extends BlockEntity implements MenuProvider {
             return;
         }
         setMode(2);
-        hp = MAX_HP;
-        lastHp = MAX_HP;
+        hp = getMaxHp();
+        lastHp = getMaxHp();
         lastPowerLevel = powerLevel;
         lastWorldTime = level.getDayTime();
         nextAttackTime = lastWorldTime / 24000L * 24000L + 14000L;
@@ -459,6 +656,7 @@ public class NexusBlockEntity extends BlockEntity implements MenuProvider {
         if (spawner.isWaveComplete()) {
             if (waveDelayTimer == -1L) {
                 messageBoundPlayers(Component.translatable("message.invasion.wave_almost_complete", currentWave).withStyle(ChatFormatting.GREEN));
+                reportStats(Component.translatable("message.invasion.stats.wave", currentWave));
                 playSoundForBoundPlayers(level, ModSounds.CHIME.get());
                 waveDelayTimer = 0L;
                 waveDelay = spawner.getWaveRestTime();
@@ -519,8 +717,8 @@ public class NexusBlockEntity extends BlockEntity implements MenuProvider {
                 spawner.beginNextWave(level, wave);
                 continuousAttack = true;
                 nextAttackTime = currentTime / 24000L * 24000L + 14000L + randomDays(level) * 24000L;
-                hp = MAX_HP;
-                lastHp = MAX_HP;
+                hp = getMaxHp();
+                lastHp = getMaxHp();
                 zapTimer = 0;
                 waveDelayTimer = -1L;
                 messageBoundPlayers(Component.translatable("message.invasion.destabilising").withStyle(ChatFormatting.RED));
@@ -539,8 +737,8 @@ public class NexusBlockEntity extends BlockEntity implements MenuProvider {
                     waveDelayTimer = -1L;
                     continuousAttack = false;
                     spawner.stop();
-                    hp = MAX_HP;
-                    lastHp = MAX_HP;
+                    hp = getMaxHp();
+                    lastHp = getMaxHp();
                     lastPowerLevel = powerLevel;
                 }
             }
@@ -601,8 +799,8 @@ public class NexusBlockEntity extends BlockEntity implements MenuProvider {
         }
         setMode(5);
         bindPlayers(level);
-        hp = MAX_HP;
-        lastHp = MAX_HP;
+        hp = getMaxHp();
+        lastHp = getMaxHp();
         messageBoundPlayers(Component.translatable("message.invasion.boss_rush.start", bossRush.getTotal()).withStyle(ChatFormatting.DARK_PURPLE));
         playSoundForBoundPlayers(level, ModSounds.RUMBLE.get());
     }
@@ -620,7 +818,8 @@ public class NexusBlockEntity extends BlockEntity implements MenuProvider {
                         Config.BOSS_RUSH_REST_SECONDS.get()).withStyle(ChatFormatting.GREEN));
                 playSoundForBoundPlayers(level, ModSounds.CHIME.get());
                 giveReward(level, new ItemStack(ModItems.RIFT_FLUX.get(), 2 + defeatedRound));
-                hp = Math.min(MAX_HP, hp + 20);
+                reportStats(Component.translatable("message.invasion.stats.round", defeatedRound));
+                hp = Math.min(getMaxHp(), hp + 20);
                 lastHp = hp;
                 nexusLevel = Math.max(nexusLevel, defeatedRound);
             }
@@ -653,6 +852,14 @@ public class NexusBlockEntity extends BlockEntity implements MenuProvider {
 
     /** Called by invaders (and boulders) hitting the Nexus. */
     public void damageNexus(int damage) {
+        damageNexus(damage, null);
+    }
+
+    /** Hit by an invader: the thorns upgrade strikes back. */
+    public void damageNexus(int damage, @Nullable net.minecraft.world.entity.Entity attacker) {
+        if (thornsLevel > 0 && attacker instanceof net.minecraft.world.entity.LivingEntity living && level instanceof ServerLevel sl && isActive()) {
+            living.hurt(sl.damageSources().thorns(living), 3.0F * thornsLevel);
+        }
         if (!(level instanceof ServerLevel serverLevel) || !isActive()) {
             return;
         }
@@ -786,6 +993,8 @@ public class NexusBlockEntity extends BlockEntity implements MenuProvider {
     private void onWaveBegin(ServerLevel level) {
         int wave = currentWave;
         foreignToSpawn = 0;
+        clearStats();
+        elitesToSpawn = com.invasion.nexus.EliteMobs.elitesForWave(wave);
         if (com.invasion.nexus.LateWaveScaling.isSpellWave(wave) && com.invasion.compat.IronsSpellsCompat.isLoaded()) {
             messageBoundPlayers(Component.translatable("message.invasion.wave.spell").withStyle(ChatFormatting.LIGHT_PURPLE));
         }
@@ -901,7 +1110,7 @@ public class NexusBlockEntity extends BlockEntity implements MenuProvider {
                     BossEvent.BossBarOverlay.NOTCHED_10);
         }
         Component name;
-        float progress = hp / (float) MAX_HP;
+        float progress = hp / (float) getMaxHp();
         if (mode == 5) {
             if (bossRush.isResting()) {
                 name = Component.translatable("bossbar.invasion.boss_rush.rest", bossRush.getRound(), bossRush.getTotal(),
@@ -1005,6 +1214,12 @@ public class NexusBlockEntity extends BlockEntity implements MenuProvider {
         tag.putInt("spawnRadius", getSpawnRadius());
         tag.putInt("nexusLevel", nexusLevel);
         tag.putInt("hp", hp);
+        tag.putInt("hpLevel", hpLevel);
+        tag.putInt("turretLevel", turretLevel);
+        tag.putInt("thornsLevel", thornsLevel);
+        if (linkedChest != null) {
+            tag.putLong("linkedChest", linkedChest.asLong());
+        }
         tag.putInt("nexusKills", nexusKills);
         tag.putInt("generation", generation);
         tag.putInt("cookTime", cookTime);
@@ -1035,7 +1250,11 @@ public class NexusBlockEntity extends BlockEntity implements MenuProvider {
         currentWave = tag.getInt("currentWave");
         spawnRadius = tag.contains("spawnRadius") ? tag.getInt("spawnRadius") : -1;
         nexusLevel = Math.max(1, tag.getInt("nexusLevel"));
-        hp = tag.contains("hp") ? tag.getInt("hp") : MAX_HP;
+        hpLevel = tag.getInt("hpLevel");
+        turretLevel = tag.getInt("turretLevel");
+        thornsLevel = tag.getInt("thornsLevel");
+        linkedChest = tag.contains("linkedChest") ? BlockPos.of(tag.getLong("linkedChest")) : null;
+        hp = tag.contains("hp") ? tag.getInt("hp") : getMaxHp();
         lastHp = hp;
         nexusKills = tag.getInt("nexusKills");
         generation = tag.getInt("generation");

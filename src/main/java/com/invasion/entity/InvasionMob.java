@@ -40,7 +40,7 @@ public interface InvasionMob {
     }
 
     default void attackNexus(NexusBlockEntity nexus) {
-        nexus.damageNexus(getNexusDamage());
+        nexus.damageNexus(getNexusDamage(), this instanceof net.minecraft.world.entity.Entity entity ? entity : null);
     }
 
     /**

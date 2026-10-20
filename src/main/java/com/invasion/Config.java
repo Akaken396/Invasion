@@ -27,6 +27,17 @@ public final class Config {
     public static final ForgeConfigSpec.ConfigValue<java.util.List<? extends String>> SPELL_BLACKLIST;
     public static final ForgeConfigSpec.ConfigValue<java.util.List<? extends String>> UNFAIR_SPELLS;
 
+    // Nexus upgrades, elites, stats, drop chest
+    public static final ForgeConfigSpec.IntValue UPGRADE_HP_PER_LEVEL;
+    public static final ForgeConfigSpec.DoubleValue UPGRADE_COST_MULTIPLIER;
+    public static final ForgeConfigSpec.IntValue ELITE_START_WAVE;
+    public static final ForgeConfigSpec.IntValue ELITE_EVERY_WAVES;
+    public static final ForgeConfigSpec.IntValue ELITE_MAX;
+    public static final ForgeConfigSpec.DoubleValue ELITE_HEALTH;
+    public static final ForgeConfigSpec.DoubleValue REPAIR_KIT_AMOUNT;
+    public static final ForgeConfigSpec.BooleanValue WAVE_STATS;
+    public static final ForgeConfigSpec.BooleanValue DROP_CHEST;
+
     // Player protection
     public static final ForgeConfigSpec.ConfigValue<java.util.List<? extends String>> BLOCKED_PLAYER_EFFECTS;
     public static final ForgeConfigSpec.ConfigValue<java.util.List<? extends String>> BLOCKED_PLAYER_VEHICLES;
@@ -125,21 +136,38 @@ public final class Config {
                         "irons_spellbooks:heal", "irons_spellbooks:greater_heal", "irons_spellbooks:cleanse", "irons_spellbooks:invisibility",
                         "irons_spellbooks:gluttony", "irons_spellbooks:angel_wing", "irons_spellbooks:telekinesis",
                         "irons_spellbooks:counterspell", "irons_spellbooks:frost_step", "irons_spellbooks:evasion"), o -> o instanceof String);
-        UNFAIR_SPELLS = BUILDER.comment("More spells invaders never cast: spells that hold or pin players (root, slow, black hole...),",
-                        "and spells that leave lasting fields or summons behind, which camp players after they respawn.")
-                .defineList("unfairSpells", java.util.List.of(
+        UNFAIR_SPELLS = BUILDER.comment("More spells invaders never cast: spells that hold, pin or pull players (root, slow, black hole...).")
+                .defineList("holdingSpells", java.util.List.of(
                         "irons_spellbooks:root", "irons_spellbooks:slow", "irons_spellbooks:blight", "irons_spellbooks:black_hole",
                         "irons_spellbooks:gravity", "irons_spellbooks:ice_block", "irons_spellbooks:frostwave",
-                        "irons_spellbooks:sculk_tentacles", "irons_spellbooks:earthquake", "irons_spellbooks:thunderstorm",
-                        "irons_spellbooks:starfall", "irons_spellbooks:blaze_storm", "irons_spellbooks:wall_of_fire",
-                        "irons_spellbooks:magma_bomb", "irons_spellbooks:poison_splash", "irons_spellbooks:poison_breath",
-                        "irons_spellbooks:acid_orb", "irons_spellbooks:raise_dead", "irons_spellbooks:summon_vex",
-                        "irons_spellbooks:summon_polar_bear", "irons_spellbooks:summon_horse", "irons_spellbooks:firefly_swarm",
-                        "irons_spellbooks:wisp", "irons_spellbooks:ball_lightning", "irons_spellbooks:chain_creeper",
-                        "irons_spellbooks:lob_creeper", "irons_spellbooks:fang_ward", "irons_spellbooks:heartstop",
-                        "irons_spellbooks:ray_of_siphoning", "irons_spellbooks:cloud_of_regeneration",
-                        "irons_spellbooks:healing_circle", "irons_spellbooks:teleport", "irons_spellbooks:blood_step",
-                        "irons_spellbooks:abyssal_shroud", "irons_spellbooks:shield"), o -> o instanceof String);
+                        "irons_spellbooks:sculk_tentacles", "irons_spellbooks:earthquake"), o -> o instanceof String);
+        BUILDER.pop();
+
+        BUILDER.push("upgrades");
+        UPGRADE_HP_PER_LEVEL = BUILDER.comment("Extra Nexus hit points per level of the HP upgrade (bought with rift flux in the Nexus GUI).")
+                .defineInRange("hpPerLevel", 25, 1, 1000);
+        UPGRADE_COST_MULTIPLIER = BUILDER.comment("Multiplier for the rift flux cost of all Nexus upgrades.")
+                .defineInRange("costMultiplier", 1.0D, 0.0D, 100.0D);
+        BUILDER.pop();
+
+        BUILDER.push("elites");
+        ELITE_START_WAVE = BUILDER.comment("First wave with elite invaders (named, glowing, with a special trait; they drop Nexus Repair Kits).")
+                .defineInRange("eliteStartWave", 5, 1, 100000);
+        ELITE_EVERY_WAVES = BUILDER.comment("Elites per wave: 1 + (wave - eliteStartWave) / eliteEveryWaves.")
+                .defineInRange("eliteEveryWaves", 10, 1, 100000);
+        ELITE_MAX = BUILDER.comment("Maximum number of elites per wave.")
+                .defineInRange("eliteMax", 5, 0, 100);
+        ELITE_HEALTH = BUILDER.comment("Health multiplier of elites.")
+                .defineInRange("eliteHealthMultiplier", 3.0D, 1.0D, 100.0D);
+        REPAIR_KIT_AMOUNT = BUILDER.comment("Share of the Nexus maximum hit points restored by a Nexus Repair Kit.")
+                .defineInRange("repairKitAmount", 0.3D, 0.01D, 1.0D);
+        BUILDER.pop();
+
+        BUILDER.push("misc");
+        WAVE_STATS = BUILDER.comment("Post the kills and damage of each player to the chat at the end of every wave.")
+                .define("waveStats", true);
+        DROP_CHEST = BUILDER.comment("Drops of mobs dying near a Nexus go into the chest linked to it with the Nexus Link Wand (less item entities = less lag).")
+                .define("dropChest", true);
         BUILDER.pop();
 
         BUILDER.push("playerProtection");
@@ -183,7 +211,7 @@ public final class Config {
                         "cataclysm:deepling_warlock", "cataclysm:ender_golem", "cataclysm:endermaptera", "cataclysm:ignited_revenant",
                         "cataclysm:koboleton", "cataclysm:amethyst_crab", "cataclysm:the_prowler", "cataclysm:the_watcher",
                         "irons_spellbooks:pyromancer", "irons_spellbooks:cryomancer", "irons_spellbooks:necromancer",
-                        "irons_spellbooks:archevoker", "irons_spellbooks:apothecarist", "irons_spellbooks:citadel_keeper",
+                        "irons_spellbooks:apothecarist", "irons_spellbooks:citadel_keeper",
                         "undergarden:rotwalker", "undergarden:rotbeast", "undergarden:rotling", "undergarden:brute",
                         "undergarden:forgotten", "undergarden:nargoyle", "undergarden:stoneborn", "undergarden:muncher",
                         "undergarden:sploogie", "twilightforest:redcap", "twilightforest:skeleton_druid", "twilightforest:kobold",

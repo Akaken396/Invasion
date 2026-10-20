@@ -45,6 +45,11 @@ public final class ModItems {
     public static final RegistryObject<Item> RIFT_ACCELERATOR = described("rift_accelerator", new Item.Properties().stacksTo(16).rarity(Rarity.UNCOMMON));
     public static final RegistryObject<Item> BOSS_RUSH_CATALYST = described("boss_rush_catalyst", new Item.Properties().stacksTo(1).rarity(Rarity.EPIC));
 
+    public static final RegistryObject<Item> NEXUS_REPAIR_KIT = ITEMS.register("nexus_repair_kit",
+            () -> new com.invasion.item.NexusRepairKitItem(new Item.Properties().stacksTo(16).rarity(Rarity.UNCOMMON)));
+    public static final RegistryObject<Item> NEXUS_LINK_WAND = ITEMS.register("nexus_link_wand",
+            () -> new com.invasion.item.NexusLinkWandItem(new Item.Properties().stacksTo(1)));
+
     public static final RegistryObject<Item> STRANGE_BONE = ITEMS.register("strange_bone",
             () -> new StrangeBoneItem(new Item.Properties().stacksTo(1)));
     public static final RegistryObject<Item> INFUSED_SWORD = ITEMS.register("infused_sword",
