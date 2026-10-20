@@ -25,6 +25,13 @@ public final class Config {
     public static final ForgeConfigSpec.IntValue SPELL_FIRST_DELAY;
     public static final ForgeConfigSpec.IntValue MAX_SPELLS_PER_SECOND;
     public static final ForgeConfigSpec.ConfigValue<java.util.List<? extends String>> SPELL_BLACKLIST;
+    public static final ForgeConfigSpec.ConfigValue<java.util.List<? extends String>> UNFAIR_SPELLS;
+
+    // Player protection
+    public static final ForgeConfigSpec.ConfigValue<java.util.List<? extends String>> BLOCKED_PLAYER_EFFECTS;
+    public static final ForgeConfigSpec.ConfigValue<java.util.List<? extends String>> BLOCKED_PLAYER_VEHICLES;
+    public static final ForgeConfigSpec.IntValue RESPAWN_GRACE_SECONDS;
+    public static final ForgeConfigSpec.IntValue RESPAWN_CLEAR_RADIUS;
 
     // Special waves
     public static final ForgeConfigSpec.IntValue ENGINEERS_BASE;
@@ -118,6 +125,36 @@ public final class Config {
                         "irons_spellbooks:heal", "irons_spellbooks:greater_heal", "irons_spellbooks:cleanse", "irons_spellbooks:invisibility",
                         "irons_spellbooks:gluttony", "irons_spellbooks:angel_wing", "irons_spellbooks:telekinesis",
                         "irons_spellbooks:counterspell", "irons_spellbooks:frost_step", "irons_spellbooks:evasion"), o -> o instanceof String);
+        UNFAIR_SPELLS = BUILDER.comment("More spells invaders never cast: spells that hold or pin players (root, slow, black hole...),",
+                        "and spells that leave lasting fields or summons behind, which camp players after they respawn.")
+                .defineList("unfairSpells", java.util.List.of(
+                        "irons_spellbooks:root", "irons_spellbooks:slow", "irons_spellbooks:blight", "irons_spellbooks:black_hole",
+                        "irons_spellbooks:gravity", "irons_spellbooks:ice_block", "irons_spellbooks:frostwave",
+                        "irons_spellbooks:sculk_tentacles", "irons_spellbooks:earthquake", "irons_spellbooks:thunderstorm",
+                        "irons_spellbooks:starfall", "irons_spellbooks:blaze_storm", "irons_spellbooks:wall_of_fire",
+                        "irons_spellbooks:magma_bomb", "irons_spellbooks:poison_splash", "irons_spellbooks:poison_breath",
+                        "irons_spellbooks:acid_orb", "irons_spellbooks:raise_dead", "irons_spellbooks:summon_vex",
+                        "irons_spellbooks:summon_polar_bear", "irons_spellbooks:summon_horse", "irons_spellbooks:firefly_swarm",
+                        "irons_spellbooks:wisp", "irons_spellbooks:ball_lightning", "irons_spellbooks:chain_creeper",
+                        "irons_spellbooks:lob_creeper", "irons_spellbooks:fang_ward", "irons_spellbooks:heartstop",
+                        "irons_spellbooks:ray_of_siphoning", "irons_spellbooks:cloud_of_regeneration",
+                        "irons_spellbooks:healing_circle", "irons_spellbooks:teleport", "irons_spellbooks:blood_step",
+                        "irons_spellbooks:abyssal_shroud", "irons_spellbooks:shield"), o -> o instanceof String);
+        BUILDER.pop();
+
+        BUILDER.push("playerProtection");
+        BLOCKED_PLAYER_EFFECTS = BUILDER.comment("Effects that cannot be put on players near a Nexus under attack (gravity, snares, slows...).")
+                .defineList("blockedPlayerEffects", java.util.List.of(
+                        "ars_nouveau:gravity", "ars_nouveau:snare", "irons_spellbooks:slowed", "irons_spellbooks:airborne",
+                        "irons_spellbooks:rooted", "irons_spellbooks:frozen", "irons_spellbooks:chilled"), o -> o instanceof String);
+        BLOCKED_PLAYER_VEHICLES = BUILDER.comment("Spell entities players cannot be stuck in near a Nexus under attack (root...).")
+                .defineList("blockedPlayerVehicles", java.util.List.of("irons_spellbooks:root", "irons_spellbooks:ice_block"),
+                        o -> o instanceof String);
+        RESPAWN_GRACE_SECONDS = BUILDER.comment("After respawning, invaders ignore and cannot hurt the player for this long",
+                        "(ends early when the player attacks). 0 = off.")
+                .defineInRange("respawnGraceSeconds", 15, 0, 600);
+        RESPAWN_CLEAR_RADIUS = BUILDER.comment("On respawn, spells, fields and summons of invaders within this radius are removed. 0 = off.")
+                .defineInRange("respawnClearRadius", 24, 0, 256);
         BUILDER.pop();
 
         BUILDER.push("specialWaves");

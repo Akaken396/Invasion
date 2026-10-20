@@ -133,7 +133,8 @@ public final class IronsSpellsCompat {
         try {
             List<?> all = (List<?>) getEnabledSpells.invoke(null);
             List<Object> usable = new ArrayList<>();
-            List<? extends String> blacklist = Config.SPELL_BLACKLIST.get();
+            List<String> blacklist = new ArrayList<>(Config.SPELL_BLACKLIST.get());
+            blacklist.addAll(Config.UNFAIR_SPELLS.get());
             for (Object spell : all) {
                 String id = MODID + ":" + getSpellId.invoke(spell);
                 String rawId = String.valueOf(getSpellId.invoke(spell));
