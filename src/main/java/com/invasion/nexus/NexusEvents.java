@@ -68,6 +68,10 @@ public final class NexusEvents {
         NexusBlockEntity nexus = nexusFor(victim);
         if (nexus != null && nexus.isActive()) {
             nexus.recordKill(player);
+            if (player instanceof net.minecraft.server.level.ServerPlayer serverPlayer) {
+                com.invasion.Roles.addXp(serverPlayer, Config.ROLE_XP_PER_KILL.get()
+                        + (EliteMobs.isElite(victim) ? Config.ROLE_XP_PER_ELITE.get() : 0));
+            }
         }
     }
 

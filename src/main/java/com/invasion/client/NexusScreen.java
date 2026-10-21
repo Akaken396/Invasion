@@ -35,6 +35,12 @@ public class NexusScreen extends AbstractContainerScreen<NexusMenu> {
                 }
             }).bounds(leftPos + imageWidth + 4, topPos + 18 + i * 24, 110, 20).build());
         }
+        addRenderableWidget(Button.builder(Component.translatable("gui.invasion.role.button"), b -> {
+            if (minecraft != null && minecraft.gameMode != null) {
+                minecraft.gameMode.handleInventoryButtonClick(menu.containerId, NexusMenu.ROLE_BUTTON);
+            }
+        }).bounds(leftPos + imageWidth + 4, topPos + 18 + 3 * 24, 110, 20)
+                .tooltip(Tooltip.create(Component.translatable("gui.invasion.role.button.desc"))).build());
         updateButtons();
     }
 

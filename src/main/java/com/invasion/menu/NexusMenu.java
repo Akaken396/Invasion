@@ -22,6 +22,7 @@ public class NexusMenu extends AbstractContainerMenu {
     private final ContainerData data;
     private final ContainerLevelAccess access;
     private final NexusBlockEntity nexus;
+    public static final int ROLE_BUTTON = 10;
 
     /** Client side constructor. */
     public NexusMenu(int id, Inventory inventory, FriendlyByteBuf buf) {
@@ -114,6 +115,12 @@ public class NexusMenu extends AbstractContainerMenu {
     /** Upgrade buttons of the screen (ids 0-2). */
     @Override
     public boolean clickMenuButton(Player player, int id) {
+        if (id == ROLE_BUTTON) {
+            if (player instanceof net.minecraft.server.level.ServerPlayer serverPlayer) {
+                com.invasion.Roles.cycleRole(serverPlayer);
+            }
+            return true;
+        }
         return nexus != null && nexus.tryUpgrade(player, id);
     }
 

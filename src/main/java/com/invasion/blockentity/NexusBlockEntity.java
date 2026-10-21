@@ -385,6 +385,14 @@ public class NexusBlockEntity extends BlockEntity implements MenuProvider {
     }
 
     private void reportStats(Component header) {
+        if (level instanceof ServerLevel serverLevel) {
+            for (UUID id : waveNames.keySet()) {
+                ServerPlayer player = serverLevel.getServer().getPlayerList().getPlayer(id);
+                if (player != null) {
+                    com.invasion.Roles.addXp(player, Config.ROLE_XP_PER_WAVE.get());
+                }
+            }
+        }
         if (!Config.WAVE_STATS.get() || waveNames.isEmpty()) {
             clearStats();
             return;

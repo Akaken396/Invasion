@@ -37,6 +37,10 @@ public final class Config {
     public static final ForgeConfigSpec.DoubleValue REPAIR_KIT_AMOUNT;
     public static final ForgeConfigSpec.BooleanValue WAVE_STATS;
     public static final ForgeConfigSpec.BooleanValue DROP_CHEST;
+    public static final ForgeConfigSpec.BooleanValue ROLES_ENABLED;
+    public static final ForgeConfigSpec.IntValue ROLE_XP_PER_KILL;
+    public static final ForgeConfigSpec.IntValue ROLE_XP_PER_ELITE;
+    public static final ForgeConfigSpec.IntValue ROLE_XP_PER_WAVE;
 
     // Player protection
     public static final ForgeConfigSpec.ConfigValue<java.util.List<? extends String>> BLOCKED_PLAYER_EFFECTS;
@@ -168,6 +172,18 @@ public final class Config {
                 .define("waveStats", true);
         DROP_CHEST = BUILDER.comment("Drops of mobs dying near a Nexus go into the chest linked to it with the Nexus Link Wand (less item entities = less lag).")
                 .define("dropChest", true);
+        BUILDER.pop();
+
+        BUILDER.push("roles");
+        ROLES_ENABLED = BUILDER.comment("Player roles (/invasionrole or the Nexus GUI): Ars mage, Iron's mage, melee, TaCZ gunner.",
+                        "Each role levels up separately (max 10) and its bonuses only apply near a Nexus under attack.")
+                .define("enabled", true);
+        ROLE_XP_PER_KILL = BUILDER.comment("Role experience per invader killed.")
+                .defineInRange("xpPerKill", 1, 0, 10000);
+        ROLE_XP_PER_ELITE = BUILDER.comment("Extra role experience per elite killed.")
+                .defineInRange("xpPerElite", 10, 0, 10000);
+        ROLE_XP_PER_WAVE = BUILDER.comment("Role experience for every player who dealt damage in a wave, when the wave ends.")
+                .defineInRange("xpPerWave", 15, 0, 10000);
         BUILDER.pop();
 
         BUILDER.push("playerProtection");

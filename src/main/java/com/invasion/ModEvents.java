@@ -60,6 +60,7 @@ public final class ModEvents {
     @SubscribeEvent
     public static void onRegisterCommands(RegisterCommandsEvent event) {
         InvasionCommand.register(event.getDispatcher());
+        Roles.registerCommand(event.getDispatcher());
     }
 
     private ModEvents() {

@@ -174,5 +174,16 @@
   "elite.invasion.mending": "Mending",
   "elite.invasion.swift": "Swift",
   "message.invasion.strange_bone.not_owner": "This is not your pet.",
-  "message.invasion.strange_bone.bound": "%s now guards the Nexus!"
+  "message.invasion.strange_bone.bound": "%s now guards the Nexus!",
+  "role.invasion.none": "None",
+  "role.invasion.ars": "Ars Mage",
+  "role.invasion.irons": "Iron's Mage",
+  "role.invasion.melee": "Melee",
+  "role.invasion.gunner": "Gunner",
+  "message.invasion.role.set": "Role: %s (Lv%s). Its bonuses apply near a Nexus under attack.",
+  "message.invasion.role.level_up": "%s reached level %s!",
+  "message.invasion.role.current": "Current role: %s",
+  "message.invasion.role.line": "  %s Lv%s (%s)",
+  "gui.invasion.role.button": "Change role",
+  "gui.invasion.role.button.desc": "Cycle through the roles: Ars mage, Iron's mage, melee, gunner (TaCZ). Each role keeps its own level. /invasionrole shows them."
 }

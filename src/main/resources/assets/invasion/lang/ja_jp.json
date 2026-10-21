@@ -174,5 +174,16 @@
   "elite.invasion.mending": "癒やしの",
   "elite.invasion.swift": "俊足の",
   "message.invasion.strange_bone.not_owner": "あなたのペットではありません。",
-  "message.invasion.strange_bone.bound": "%s がネクサスの守護者になった！"
+  "message.invasion.strange_bone.bound": "%s がネクサスの守護者になった！",
+  "role.invasion.none": "なし",
+  "role.invasion.ars": "Ars魔術師",
+  "role.invasion.irons": "Iron's魔術師",
+  "role.invasion.melee": "近接",
+  "role.invasion.gunner": "銃士",
+  "message.invasion.role.set": "ロール：%s（Lv%s）。襲撃中のネクサス周辺で強化が効く。",
+  "message.invasion.role.level_up": "%s がレベル %s になった！",
+  "message.invasion.role.current": "現在のロール：%s",
+  "message.invasion.role.line": "  %s Lv%s（%s）",
+  "gui.invasion.role.button": "ロール変更",
+  "gui.invasion.role.button.desc": "Ars魔術師→Iron's魔術師→近接→銃士（TaCZ）→なし の順に切り替え。レベルはロールごとに保存。/invasionrole で確認。"
 }
