@@ -101,7 +101,7 @@ public final class LateWaveScaling {
         multiply(mob.getAttribute(Attributes.MAX_HEALTH), HEALTH_ID, "Late wave health",
                 Config.LATE_HEALTH_BONUS.get() + Config.LATE_HEALTH_PER_WAVE.get() * over);
         multiply(mob.getAttribute(Attributes.ATTACK_DAMAGE), DAMAGE_ID, "Late wave damage",
-                Config.LATE_DAMAGE_BONUS.get() + Config.LATE_DAMAGE_PER_WAVE.get() * over);
+                Math.min(Config.LATE_DAMAGE_MAX.get(), Config.LATE_DAMAGE_BONUS.get() + Config.LATE_DAMAGE_PER_WAVE.get() * over));
         mob.setHealth(mob.getMaxHealth());
 
         int tier = over < 20 ? 0 : over < 40 ? 1 : 2;

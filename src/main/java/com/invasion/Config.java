@@ -20,6 +20,9 @@ public final class Config {
     public static final ForgeConfigSpec.DoubleValue LATE_HEALTH_PER_WAVE;
     public static final ForgeConfigSpec.DoubleValue LATE_DAMAGE_BONUS;
     public static final ForgeConfigSpec.DoubleValue LATE_DAMAGE_PER_WAVE;
+    public static final ForgeConfigSpec.DoubleValue LATE_DAMAGE_MAX;
+    public static final ForgeConfigSpec.DoubleValue MAX_HIT_PERCENT;
+    public static final ForgeConfigSpec.IntValue SPELL_LEVEL_WAVES;
     public static final ForgeConfigSpec.DoubleValue SPELL_CASTER_CHANCE;
     public static final ForgeConfigSpec.IntValue SPELL_CAST_INTERVAL;
     public static final ForgeConfigSpec.IntValue SPELL_FIRST_DELAY;
@@ -121,10 +124,17 @@ public final class Config {
                 .defineInRange("healthBonus", 0.5D, 0.0D, 1000.0D);
         LATE_HEALTH_PER_WAVE = BUILDER.comment("Additional health per wave after lateWaveStart.")
                 .defineInRange("healthPerWave", 0.05D, 0.0D, 100.0D);
-        LATE_DAMAGE_BONUS = BUILDER.comment("Extra attack damage of late-wave mobs at lateWaveStart.")
-                .defineInRange("damageBonus", 0.25D, 0.0D, 1000.0D);
+        LATE_DAMAGE_BONUS = BUILDER.comment("Extra attack damage of late-wave mobs at lateWaveStart (0.1 = +10%).")
+                .defineInRange("lateDamageBonus", 0.1D, 0.0D, 1000.0D);
         LATE_DAMAGE_PER_WAVE = BUILDER.comment("Additional attack damage per wave after lateWaveStart.")
-                .defineInRange("damagePerWave", 0.03D, 0.0D, 100.0D);
+                .defineInRange("lateDamagePerWave", 0.015D, 0.0D, 100.0D);
+        LATE_DAMAGE_MAX = BUILDER.comment("Cap of the late-wave attack damage bonus (1.5 = at most +150%).")
+                .defineInRange("lateDamageMax", 1.5D, 0.0D, 1000.0D);
+        MAX_HIT_PERCENT = BUILDER.comment("No one-shots: a single hit of an invader (melee, arrow, spell, explosion...) deals at most",
+                        "this share of the player's maximum health (0.35 = 35%). 1.0 = off.")
+                .defineInRange("maxHitPercent", 0.35D, 0.05D, 1.0D);
+        SPELL_LEVEL_WAVES = BUILDER.comment("Invader spells start at the lowest spell level; it rises by one every N waves after lateWaveStart.")
+                .defineInRange("spellLevelWaves", 15, 1, 10000);
         SPELL_CASTER_CHANCE = BUILDER.comment("Share of late-wave mobs that cast random Iron's Spells 'n Spellbooks spells (needs that mod).")
                 .defineInRange("spellCasterChance", 0.1D, 0.0D, 1.0D);
         SPELL_CAST_INTERVAL = BUILDER.comment("Cooldown in seconds after a caster casts a spell (randomly up to 50% longer).",

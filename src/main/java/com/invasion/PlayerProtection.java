@@ -123,6 +123,23 @@ public final class PlayerProtection {
         }
     }
 
+    /** No one-shots: one hit of an invader takes at most a share of the player's maximum health (after armour). */
+    @SubscribeEvent(priority = EventPriority.LOWEST)
+    public static void onDamage(net.minecraftforge.event.entity.living.LivingDamageEvent event) {
+        if (!(event.getEntity() instanceof Player player) || player.level().isClientSide) {
+            return;
+        }
+        double share = Config.MAX_HIT_PERCENT.get();
+        if (share >= 1.0D) {
+            return;
+        }
+        Entity attacker = event.getSource().getEntity();
+        Entity direct = event.getSource().getDirectEntity();
+        if (InvasionAllies.isInvaderSide(attacker) || InvasionAllies.isInvaderSide(direct)) {
+            event.setAmount((float) Math.min(event.getAmount(), player.getMaxHealth() * share));
+        }
+    }
+
     /** Attacking ends the grace period, so it cannot be abused. */
     @SubscribeEvent
     public static void onPlayerAttack(AttackEntityEvent event) {

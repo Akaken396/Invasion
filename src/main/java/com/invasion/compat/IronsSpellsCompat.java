@@ -148,6 +148,11 @@ public final class IronsSpellsCompat {
             Object spell = usable.get(level.random.nextInt(usable.size()));
             int min = Math.max(1, (Integer) getMinLevel.invoke(spell));
             int max = Math.max(min, (Integer) getMaxLevel.invoke(spell));
+            // Spell level grows slowly with the wave instead of being random up to the maximum.
+            com.invasion.blockentity.NexusBlockEntity nexus = com.invasion.nexus.NexusEvents.nexusFor(mob);
+            int wave = nexus != null ? nexus.getCurrentWave() : Config.LATE_WAVE_START.get();
+            int cap = min + Math.max(0, wave - Config.LATE_WAVE_START.get()) / Config.SPELL_LEVEL_WAVES.get();
+            max = Math.max(min, Math.min(max, cap));
             int spellLevel = min + level.random.nextInt(max - min + 1);
             cast(level, mob, target, spell, spellLevel);
             if (getSpellCooldown != null && getSpellCooldown.invoke(spell) instanceof Number ticks) {

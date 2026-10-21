@@ -255,6 +255,18 @@ public final class Roles {
         }
     }
 
+    /** Melee players stand in front: they take 3% less damage from invaders per level. */
+    @SubscribeEvent(priority = EventPriority.LOW)
+    public static void onPlayerHurt(LivingHurtEvent event) {
+        if (!(event.getEntity() instanceof ServerPlayer player) || !isActive(player) || getRole(player) != Role.MELEE) {
+            return;
+        }
+        Entity attacker = event.getSource().getEntity();
+        if (InvasionAllies.isInvaderSide(attacker) || InvasionAllies.isInvaderSide(event.getSource().getDirectEntity())) {
+            event.setAmount(event.getAmount() * (1.0F - 0.03F * getLevel(player, Role.MELEE)));
+        }
+    }
+
     private static boolean fromMod(DamageSource source, @Nullable Entity direct, String mod) {
         if (source.typeHolder().unwrapKey().map(k -> mod.equals(k.location().getNamespace())).orElse(false)) {
             return true;
